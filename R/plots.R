@@ -147,6 +147,8 @@ add_pathway_row <- function(p, pathway, row) {
   runs$id <- paste0("run-", seq_len(nrow(runs)))
   runs$decision <- factor(runs$decision, levels = names(decision_labels))
   changes <- runs[-1, , drop = FALSE]
+  wide <- runs[runs$end - runs$start >= 2, , drop = FALSE]
+  narrow <- runs[runs$end - runs$start < 2, , drop = FALSE]
 
   p +
     ggiraph::geom_rect_interactive(
@@ -156,10 +158,19 @@ add_pathway_row <- function(p, pathway, row) {
                    data_id = id),
       inherit.aes = FALSE
     ) +
+    # Label on the bar, in black or white for contrast with its fill;
+    # one-day runs are too narrow, so their label sits just above.
     ggplot2::geom_text(
-      data = runs[runs$end - runs$start >= 2, , drop = FALSE],
+      data = wide,
       ggplot2::aes(x = (start + end) / 2, y = row, label = label),
-      inherit.aes = FALSE, colour = "white", size = 3, fontface = "bold"
+      inherit.aes = FALSE, size = 3, fontface = "bold",
+      colour = text_on(dtp_colours$decision[as.character(wide$decision)])
+    ) +
+    ggplot2::geom_text(
+      data = narrow,
+      ggplot2::aes(x = (start + end) / 2, y = row - 0.5, label = label),
+      inherit.aes = FALSE, size = 2.6, fontface = "bold",
+      colour = dtp_colours$ink
     ) +
     ggplot2::geom_vline(
       data = changes, ggplot2::aes(xintercept = start),
@@ -170,7 +181,7 @@ add_pathway_row <- function(p, pathway, row) {
       data = changes,
       ggplot2::aes(x = start, y = 0.2, label = paste("Day", from_day)),
       inherit.aes = FALSE, hjust = -0.05, vjust = 0, size = 3,
-      colour = dtp_colours$decision[as.character(changes$decision)]
+      colour = dtp_colours$ink
     ) +
     ggplot2::scale_fill_manual(
       "Next patient", values = dtp_colours$decision,
