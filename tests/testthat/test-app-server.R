@@ -1,0 +1,81 @@
+# The UI's default inputs.
+defaults <- list(
+  num_doses = 5, target = 0.25, obswin = 30, prior_type = "calibrate",
+  prior_mtd = 1, halfwidth = 0.05,
+  skeleton_text = "0.03, 0.07, 0.20, 0.30, 0.40",
+  variance_type = "least_informative", variance = 1, no_skip_esc = TRUE,
+  no_skip_deesc = TRUE, global_coherence = TRUE, stop_on = TRUE,
+  stop_confidence = 0.7, stop_n_min = 2, stop_default_prior = TRUE,
+  stop_prior_mean = 0.2, stop_prior_ess = 10, day_of_assessment = 50
+)
+start <- function(session, ...) {
+  do.call(session$setInputs, utils::modifyList(defaults, list(...)))
+}
+
+test_that("the example is fitted on start-up with defaults", {
+  shiny::testServer(app_server, {
+    start(session)
+    r <- result()
+    expect_length(r$problems, 0)
+    skeleton <- calibrate_skeleton(0.25, 0.05, prior_mtd = 1, num_doses = 5)
+    expect_equal(r$skeleton, skeleton)
+    # Least informative variance by default.
+    expect_equal(r$variance, least_informative_variance(skeleton, 0.25))
+    expect_s3_class(r$pathway, "dtp_pathway")
+    expect_match(as.character(output$summary_boxes$html),
+                 "Recommendation on day 50")
+  })
+})
+
+test_that("a variance of my own is used when chosen", {
+  shiny::testServer(app_server, {
+    start(session)
+    li <- escalation::mean_prob_tox(result()$pathway$fits$current)
+    session$setInputs(variance_type = "own", variance = 0.65, run = 1)
+    expect_equal(result()$variance, 0.65)
+    own <- escalation::mean_prob_tox(result()$pathway$fits$current)
+    expect_false(isTRUE(all.equal(li, own)))
+  })
+})
+
+test_that("settings problems stop the fit and are listed", {
+  shiny::testServer(app_server, {
+    start(session, prior_type = "enter", skeleton_text = "0.1, 0.2")
+    r <- result()
+    expect_match(r$problems, "Enter 5 probabilities", all = FALSE)
+    expect_null(r$pathway)
+    expect_match(as.character(output$summary_boxes$html),
+                 "No recommendation")
+  })
+})
+
+test_that("results update only on request, with a note until then", {
+  shiny::testServer(app_server, {
+    start(session)
+    first <- result()
+    session$setInputs(target = 0.3)
+    expect_identical(result(), first)
+    expect_match(as.character(output$stale_note$html), "changed since")
+
+    session$setInputs(run = 1)
+    expect_equal(result()$settings$target, 0.3)
+    expect_null(output$stale_note)
+  })
+})
+
+test_that("adding a patient and invalid data are shown before fitting", {
+  shiny::testServer(app_server, {
+    start(session)
+    session$setInputs(add_patient = 1)
+    expect_equal(nrow(trial()), 9)
+    expect_equal(trial()$entry_day[9], 50)
+    expect_null(output$data_problems)
+
+    session$setInputs(day_of_assessment = 40)
+    expect_match(as.character(output$data_problems$html),
+                 "after the day of assessment")
+    session$setInputs(run = 1)
+    expect_match(result()$problems, "after the day of assessment",
+                 all = FALSE)
+  })
+})
