@@ -210,5 +210,30 @@ test_that("least informative variance is closest to a uniform MTD prior", {
 test_that("least informative variance warns at the edge of its search", {
   skeleton <- calibrate_skeleton(0.25, 0.05, prior_mtd = 1, num_doses = 5)
   expect_warning(least_informative_variance(skeleton, 0.25, sd_max = 0.5),
-                 "search limit")
+                 "search limit \\(0.5\\)")
+  # Review of #8: the lower limit warns too, instead of returning it.
+  tight <- c(0.249, 0.2495, 0.25, 0.2505, 0.251)
+  expect_warning(least_informative_variance(tight, 0.25, sd_min = 0.01),
+                 "search limit \\(0.01\\)")
+  expect_error(least_informative_variance(skeleton, 0.25, sd_min = 1,
+                                          sd_max = 0.5))
+})
+
+test_that("tightly spaced skeletons find their small optimum", {
+  # Review of #8: a fixed lower limit of 0.01 returned 0.01 here.
+  tight <- c(0.249, 0.2495, 0.25, 0.2505, 0.251)
+  sd <- sqrt(least_informative_variance(tight, 0.25))
+  expect_equal(sd, 0.00259, tolerance = 1e-3)
+})
+
+test_that("an optimum just inside the upper limit gives no warning", {
+  # Review of #8: the warning followed the coarse grid's best point, so it
+  # fired when the refined optimum lay just inside the limit.
+  skeleton <- c(0.05, 0.12, 0.25, 0.4, 0.55)
+  v <- least_informative_variance(skeleton, 0.25)
+  expect_no_warning(
+    near <- least_informative_variance(skeleton, 0.25,
+                                       sd_max = sqrt(v) * 1.01)
+  )
+  expect_equal(near, v, tolerance = 1e-6)
 })
