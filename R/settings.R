@@ -27,6 +27,10 @@ parse_skeleton <- function(text, num_doses) {
 
 #' Skeleton from the prior settings
 #'
+#' A calibrated skeleton is rounded to two decimals, as reported in a
+#' protocol; the rounded values are the ones the model and the least
+#' informative variance use. An entered skeleton is used as entered.
+#'
 #' @param prior_type `"calibrate"` or `"enter"`.
 #' @param target,halfwidth,prior_mtd,num_doses See [calibrate_skeleton()].
 #' @param text User-entered skeleton, see [parse_skeleton()].
@@ -36,12 +40,26 @@ skeleton_from_settings <- function(prior_type, target, halfwidth, prior_mtd,
   if (identical(prior_type, "enter")) {
     return(parse_skeleton(text, num_doses))
   }
-  tryCatch(
-    list(skeleton = calibrate_skeleton(target, halfwidth, prior_mtd,
-                                       num_doses),
-         problem = NULL),
-    error = function(e) list(skeleton = NULL, problem = conditionMessage(e))
+  if (!is.numeric(halfwidth) || length(halfwidth) != 1 || is.na(halfwidth) ||
+      halfwidth <= 0) {
+    return(list(skeleton = NULL,
+                problem = "Half-width must be a positive number."))
+  }
+  skeleton <- tryCatch(
+    round(calibrate_skeleton(target, halfwidth, prior_mtd, num_doses), 2),
+    error = function(e) conditionMessage(e)
   )
+  if (is.character(skeleton)) {
+    return(list(skeleton = NULL, problem = skeleton))
+  }
+  if (any(skeleton <= 0 | skeleton >= 1) ||
+      is.unsorted(skeleton, strictly = TRUE)) {
+    return(list(skeleton = NULL, problem = paste(
+      "Rounded to two decimals, the calibrated skeleton is not increasing",
+      "within (0, 1); try a larger half-width or fewer doses."
+    )))
+  }
+  list(skeleton = skeleton, problem = NULL)
 }
 
 #' Beta prior for the safety stopping rule

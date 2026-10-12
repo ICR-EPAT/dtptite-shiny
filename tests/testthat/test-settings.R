@@ -20,7 +20,8 @@ test_that("skeleton comes from calibration or entry", {
   calibrated <- skeleton_from_settings("calibrate", target = 0.25,
                                        halfwidth = 0.05, prior_mtd = 3,
                                        num_doses = 5, text = "ignored")
-  expect_equal(calibrated$skeleton, calibrate_skeleton(0.25, 0.05, 3, 5))
+  expect_equal(calibrated$skeleton,
+               round(calibrate_skeleton(0.25, 0.05, 3, 5), 2))
   entered <- skeleton_from_settings("enter", 0.25, 0.05, 3, 3,
                                     text = "0.1, 0.2, 0.3")
   expect_equal(entered$skeleton, c(0.1, 0.2, 0.3))
@@ -29,6 +30,36 @@ test_that("skeleton comes from calibration or entry", {
                                 prior_mtd = 3, num_doses = 5, text = "")
   expect_null(bad$skeleton)
   expect_match(bad$problem, "within \\(0, 1\\)")
+})
+
+test_that("calibrated skeleton is rounded to two decimals", {
+  four <- skeleton_from_settings("calibrate", target = 0.25,
+                                 halfwidth = 0.25 / 4, prior_mtd = 3,
+                                 num_doses = 4, text = "")
+  expect_equal(four$skeleton, c(0.06, 0.14, 0.25, 0.38))
+  # The least informative variance comes from the rounded values.
+  expect_equal(
+    variance_from_settings("least_informative", NA, four$skeleton,
+                           0.25)$variance,
+    0.3237, tolerance = 1e-3
+  )
+  # An entered skeleton is used as entered.
+  entered <- skeleton_from_settings("enter", 0.25, 0.0625, 3, 3,
+                                    text = "0.105, 0.2, 0.3")
+  expect_equal(entered$skeleton, c(0.105, 0.2, 0.3))
+})
+
+test_that("half-width and rounding problems are explained", {
+  for (bad in list(NA_real_, 0, -0.01, NULL)) {
+    r <- skeleton_from_settings("calibrate", 0.25, bad, 3, 5, "")
+    expect_match(r$problem, "Half-width must be a positive number")
+  }
+  # Ten doses near a 5% target round to ties.
+  tied <- skeleton_from_settings("calibrate", target = 0.05,
+                                 halfwidth = 0.01, prior_mtd = 10,
+                                 num_doses = 10, text = "")
+  expect_null(tied$skeleton)
+  expect_match(tied$problem, "Rounded to two decimals")
 })
 
 test_that("stopping prior is the default or from mean and sample size", {
