@@ -107,3 +107,94 @@ validate_trial_data <- function(data, num_doses, day_of_assessment, obswin) {
   }
   problems
 }
+
+#' Map the legacy app's five-column CSV to the status-based format
+#'
+#' The legacy upload was headerless: dose level, DLT (0/1), entry day,
+#' follow-up days, still monitored for DLT (0/1).
+#'
+#' @param legacy A data.frame with the five legacy columns, in order.
+#' @inheritParams normalise_trial_data
+#' @return A data.frame with `dose`, `entry_day`, `status`, `days_followed`.
+from_legacy_format <- function(legacy, obswin) {
+  stopifnot(ncol(legacy) == 5)
+  names(legacy) <- c("level", "tox", "entry", "followup", "monitored")
+  status <- ifelse(
+    legacy$tox == 1, "DLT",
+    ifelse(legacy$monitored == 1, "Ongoing",
+           ifelse(legacy$followup >= obswin, "Completed", "Withdrawn"))
+  )
+  data.frame(
+    dose = legacy$level,
+    entry_day = legacy$entry,
+    status = status,
+    days_followed = ifelse(status %in% c("DLT", "Withdrawn"),
+                           legacy$followup, NA_real_)
+  )
+}
+
+# Accepted spellings for each column of an uploaded file.
+column_aliases <- list(
+  dose = c("dose", "dose_level", "level"),
+  entry_day = c("entry_day", "entry", "entry_date"),
+  status = c("status", "follow_up_status", "dlt_status"),
+  days_followed = c("days_followed", "followup", "follow_up", "days")
+)
+
+#' Read uploaded trial data
+#'
+#' Accepts the status-based format (a CSV or Excel file with a header row)
+#' and the legacy headerless five-column CSV.
+#'
+#' @param path Path to the uploaded file.
+#' @param name Original file name, used to pick the reader.
+#' @inheritParams normalise_trial_data
+#' @return A data.frame with `dose`, `entry_day`, `status`, `days_followed`.
+read_trial_file <- function(path, name = path, obswin) {
+  if (grepl("[.]xlsx?$", name, ignore.case = TRUE)) {
+    raw <- as.data.frame(readxl::read_excel(path))
+  } else {
+    raw <- utils::read.csv(path, header = FALSE, strip.white = TRUE,
+                           stringsAsFactors = FALSE)
+    first_row_numeric <- !anyNA(suppressWarnings(as.numeric(unlist(raw[1, ]))))
+    if (ncol(raw) == 5 && first_row_numeric) {
+      return(from_legacy_format(raw, obswin))
+    }
+    raw <- utils::read.csv(path, strip.white = TRUE, stringsAsFactors = FALSE)
+  }
+
+  key <- gsub("[^a-z]+", "_", tolower(trimws(names(raw))))
+  out <- lapply(column_aliases, function(aliases) {
+    hit <- match(aliases, key)
+    hit <- hit[!is.na(hit)]
+    if (length(hit)) raw[[hit[1]]] else NULL
+  })
+  missing <- setdiff(c("dose", "entry_day", "status"),
+                     names(Filter(Negate(is.null), out)))
+  if (length(missing)) {
+    stop("Missing column(s): ", paste(missing, collapse = ", "),
+         ". Expected dose, entry_day, status, days_followed.", call. = FALSE)
+  }
+  if (is.null(out$days_followed)) out$days_followed <- NA_real_
+
+  # Match status case-insensitively to the canonical labels.
+  status <- trimws(as.character(out$status))
+  canonical <- trial_statuses[match(tolower(status), tolower(trial_statuses))]
+  data.frame(
+    dose = as.numeric(out$dose),
+    entry_day = as.numeric(out$entry_day),
+    status = ifelse(is.na(canonical), status, canonical),
+    days_followed = suppressWarnings(as.numeric(out$days_followed))
+  )
+}
+
+#' Example trial data, also offered as the upload template
+example_trial_data <- function() {
+  data.frame(
+    dose = c(1, 1, 1, 2, 2, 2, 3, 3),
+    entry_day = c(1, 8, 15, 30, 37, 44, 60, 68),
+    status = c("Completed", "Completed", "Completed", "Completed", "DLT",
+               "Withdrawn", "Ongoing", "Ongoing"),
+    days_followed = c(NA, NA, NA, NA, 12, 9, NA, NA)
+  )
+}
