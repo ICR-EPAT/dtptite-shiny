@@ -66,28 +66,23 @@ recommendation_text <- function(pathway) {
   list(decision = now, headline = headline, details = c(details, closing))
 }
 
-#' Model recommendation at the key days of the pathway
+#' Fits at the key days of the pathway
 #'
-#' One row for the day of assessment, one per later change of
-#' recommendation and one for complete follow-up. A later change falling on
-#' the complete-follow-up day is reported as complete follow-up; complete
-#' follow-up on the day of assessment is reported once, as current.
+#' The day of assessment, each later change of recommendation and complete
+#' follow-up. A later change falling on the complete-follow-up day is
+#' reported as complete follow-up; complete follow-up on the day of
+#' assessment is reported once, as current.
 #'
 #' @param pathway A `dtp_pathway`.
-#' @param level Coverage of the posterior interval.
-#' @return A data frame with `curve`, `day`, `dose` (`NA` when stopped),
-#'   `decision`, and the posterior DLT probability at `dose`: `prob_tox`,
-#'   `lower`, `upper` (all `NA` when stopped). `level` is kept as an
-#'   attribute.
-model_table <- function(pathway, level = 0.9) {
-  stopifnot(is.numeric(level), length(level) == 1, level > 0, level < 1)
+#' @return A list of `list(curve, day, fit)`, in time order.
+key_fits <- function(pathway) {
   runs <- pathway$runs
   t_a <- pathway$day_of_assessment
   complete <- pathway$complete_day
 
   later <- seq_len(nrow(runs))[-1]
   later <- later[runs$from_day[later] != complete]
-  rows <- c(
+  c(
     list(list(curve = sprintf("Current (day %d)", t_a), day = t_a,
               fit = pathway$fits$current)),
     lapply(later, function(i) {
@@ -99,9 +94,22 @@ model_table <- function(pathway, level = 0.9) {
                 day = complete, fit = pathway$fits$complete))
     }
   )
+}
 
+#' Model recommendation at the key days of the pathway
+#'
+#' One row per [key_fits()] entry.
+#'
+#' @param pathway A `dtp_pathway`.
+#' @param level Coverage of the posterior interval.
+#' @return A data frame with `curve`, `day`, `dose` (`NA` when stopped),
+#'   `decision`, and the posterior DLT probability at `dose`: `prob_tox`,
+#'   `lower`, `upper` (all `NA` when stopped). `level` is kept as an
+#'   attribute.
+model_table <- function(pathway, level = 0.9) {
+  stopifnot(is.numeric(level), length(level) == 1, level > 0, level < 1)
   tail_p <- (1 - level) / 2
-  out <- do.call(rbind, lapply(rows, function(r) {
+  out <- do.call(rbind, lapply(key_fits(pathway), function(r) {
     dose <- escalation::recommended_dose(r$fit)
     dose <- if (is.na(dose)) NA_integer_ else as.integer(dose)
     at <- function(x) if (is.na(dose)) NA_real_ else x[dose]
