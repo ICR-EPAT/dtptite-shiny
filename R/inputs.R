@@ -23,7 +23,9 @@ trial_statuses <- c("Ongoing", "Completed", "DLT", "Withdrawn")
 normalise_trial_data <- function(data, day_of_assessment, obswin) {
   stopifnot(is.data.frame(data),
             all(c("dose", "entry_day", "status") %in% names(data)))
-  if (!"days_followed" %in% names(data)) data$days_followed <- NA_real_
+  if (!"days_followed" %in% names(data)) {
+    data$days_followed <- rep(NA_real_, nrow(data))
+  }
 
   data <- data[order(data$entry_day), , drop = FALSE]
   rownames(data) <- NULL
@@ -154,6 +156,9 @@ read_trial_file <- function(path, name = path, obswin) {
   if (grepl("[.]xlsx?$", name, ignore.case = TRUE)) {
     raw <- as.data.frame(readxl::read_excel(path))
   } else {
+    if (all(!nzchar(trimws(readLines(path, warn = FALSE))))) {
+      stop("The file is empty.", call. = FALSE)
+    }
     raw <- utils::read.csv(path, header = FALSE, strip.white = TRUE,
                            stringsAsFactors = FALSE)
     first_row_numeric <- !anyNA(suppressWarnings(as.numeric(unlist(raw[1, ]))))
@@ -175,7 +180,9 @@ read_trial_file <- function(path, name = path, obswin) {
     stop("Missing column(s): ", paste(missing, collapse = ", "),
          ". Expected dose, entry_day, status, days_followed.", call. = FALSE)
   }
-  if (is.null(out$days_followed)) out$days_followed <- NA_real_
+  if (is.null(out$days_followed)) {
+    out$days_followed <- rep(NA_real_, nrow(raw))
+  }
 
   # Match status case-insensitively to the canonical labels.
   status <- trimws(as.character(out$status))
