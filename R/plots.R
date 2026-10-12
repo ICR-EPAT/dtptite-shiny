@@ -179,26 +179,47 @@ add_pathway_row <- function(p, pathway, row) {
     )
 }
 
+#' Prior DLT probability quantiles of the empiric working model
+#'
+#' Under the empiric model `p_d = skeleton_d ^ exp(beta)` with
+#' `beta ~ N(0, variance)`, the quantile used by escalation for the
+#' posterior, applied to the prior.
+#'
+#' @param skeleton Prior DLT probabilities (the design's skeleton).
+#' @param variance Prior variance of `beta`.
+#' @param p Probability.
+prior_prob_tox_quantile <- function(skeleton, variance, p) {
+  skeleton^exp(stats::qnorm(1 - p, mean = 0, sd = sqrt(variance)))
+}
+
 #' Prior and posterior dose-toxicity curves at the key days
 #'
 #' One panel per [key_fits()] entry, each with the prior for reference.
 #'
 #' @param pathway A `dtp_pathway`.
 #' @param skeleton Prior DLT probabilities (the design's skeleton).
+#' @param variance Prior variance of the model parameter (the design's).
 #' @param target Target DLT rate.
-#' @param level Coverage of the posterior credible interval.
+#' @param level Coverage of the credible intervals.
 #' @return A data frame with `panel` (factor of panel headers, in time
 #'   order), `curve`, `role` (`prior`, `current`, `change`, `complete`),
-#'   `dose`, `prob_tox`, `lower`, `upper`, `recommended` (the design's
-#'   recommendation, after its rules), `mtd_estimate` (posterior mean
-#'   closest to target) and `tooltip`. Prior rows repeat in every panel.
-dose_toxicity_data <- function(pathway, skeleton, target, level = 0.9) {
+#'   `dose`, `prob_tox` (the skeleton for the prior), `lower`, `upper`,
+#'   `recommended` (the design's recommendation, after its rules),
+#'   `mtd_estimate` (posterior mean closest to target) and `tooltip`.
+#'   Prior rows repeat in every panel.
+dose_toxicity_data <- function(pathway, skeleton, variance, target,
+                               level = 0.9) {
   tail_p <- (1 - level) / 2
   doses <- seq_along(skeleton)
   fits <- key_fits(pathway)
   roles <- c("current", rep("change", length(fits) - 1))
   if (pathway$complete_day != pathway$day_of_assessment) {
     roles[length(roles)] <- "complete"
+  }
+  prior_lower <- prior_prob_tox_quantile(skeleton, variance, tail_p)
+  prior_upper <- prior_prob_tox_quantile(skeleton, variance, 1 - tail_p)
+  ci <- function(lower, upper) {
+    sprintf("%g%% CrI [%.3f, %.3f]", 100 * level, lower, upper)
   }
 
   out <- do.call(rbind, Map(function(k, role) {
@@ -222,16 +243,15 @@ dose_toxicity_data <- function(pathway, skeleton, target, level = 0.9) {
              "")
     )
     posterior$tooltip <- sprintf(
-      "<b>%s</b><br>Dose level %d: %.3f<br>%g%% CrI [%.3f, %.3f]%s",
-      k$curve, doses, mean, 100 * level, posterior$lower, posterior$upper,
-      note
+      "<b>%s</b><br>Dose level %d: %.3f<br>%s%s", k$curve, doses, mean,
+      ci(posterior$lower, posterior$upper), note
     )
     prior <- data.frame(
       panel = panel, curve = "Prior", role = "prior", dose = doses,
-      prob_tox = skeleton, lower = NA_real_, upper = NA_real_,
+      prob_tox = skeleton, lower = prior_lower, upper = prior_upper,
       recommended = FALSE, mtd_estimate = FALSE,
-      tooltip = sprintf("<b>Prior</b><br>Dose level %d: %.3f", doses,
-                        skeleton)
+      tooltip = sprintf("<b>Prior</b><br>Dose level %d: %.3f<br>%s", doses,
+                        skeleton, ci(prior_lower, prior_upper))
     )
     rbind(prior, posterior)
   }, fits, roles))
@@ -241,17 +261,19 @@ dose_toxicity_data <- function(pathway, skeleton, target, level = 0.9) {
 
 #' Dose-toxicity plot: posterior and prior curves, one panel per key day
 #'
-#' Each panel shows the posterior mean with its credible interval at every
-#' dose, the prior (grey, dashed) and the target (dotted); the recommended
-#' dose is filled and named in the panel header.
+#' Each panel shows the posterior and the prior (grey, dashed) with their
+#' credible intervals as shaded bands, and the target (dotted). Only the
+#' recommended dose is a filled point; it is also named in the header.
 #'
 #' @param pathway A `dtp_pathway`.
 #' @param skeleton Prior DLT probabilities (the design's skeleton).
+#' @param variance Prior variance of the model parameter (the design's).
 #' @param target Target DLT rate.
-#' @param level Coverage of the posterior credible interval.
+#' @param level Coverage of the credible intervals.
 #' @return A ggplot with ggiraph interactive layers.
-plot_dose_toxicity <- function(pathway, skeleton, target, level = 0.9) {
-  d <- dose_toxicity_data(pathway, skeleton, target, level)
+plot_dose_toxicity <- function(pathway, skeleton, variance, target,
+                               level = 0.9) {
+  d <- dose_toxicity_data(pathway, skeleton, variance, target, level)
   role_colour <- c(current = dtp_colours$accent, change = "#CC79A7",
                    complete = "#56B4E9")
   prior <- d[d$role == "prior", , drop = FALSE]
@@ -260,25 +282,29 @@ plot_dose_toxicity <- function(pathway, skeleton, target, level = 0.9) {
   post$id <- paste(post$panel, post$dose)
 
   ggplot2::ggplot(mapping = ggplot2::aes(dose, prob_tox)) +
+    ggplot2::geom_ribbon(
+      data = prior, ggplot2::aes(ymin = lower, ymax = upper, group = panel),
+      fill = dtp_colours$muted, alpha = 0.12
+    ) +
+    ggplot2::geom_ribbon(
+      data = post,
+      ggplot2::aes(ymin = lower, ymax = upper, group = panel,
+                   fill = I(colour)),
+      alpha = 0.2
+    ) +
     ggplot2::geom_hline(yintercept = target, colour = dtp_colours$ink,
                         linetype = "dotted", linewidth = 0.4) +
-    ggiraph::geom_line_interactive(
-      data = prior, ggplot2::aes(group = panel, tooltip = "Prior"),
-      colour = dtp_colours$muted, linetype = "22", linewidth = 0.6
-    ) +
+    ggplot2::geom_line(data = prior, ggplot2::aes(group = panel),
+                       colour = dtp_colours$muted, linetype = "22",
+                       linewidth = 0.6) +
     ggiraph::geom_point_interactive(
       data = prior, ggplot2::aes(tooltip = tooltip),
-      colour = dtp_colours$muted, size = 1.2
+      colour = dtp_colours$muted, fill = "white", shape = 21, size = 1.4,
+      stroke = 0.8
     ) +
     ggplot2::geom_line(data = post,
                        ggplot2::aes(group = panel, colour = I(colour)),
                        linewidth = 0.8) +
-    ggiraph::geom_errorbar_interactive(
-      data = post,
-      ggplot2::aes(ymin = lower, ymax = upper, colour = I(colour),
-                   tooltip = tooltip, data_id = id),
-      width = 0.15, linewidth = 0.5
-    ) +
     ggiraph::geom_point_interactive(
       data = post,
       ggplot2::aes(colour = I(colour),
@@ -292,10 +318,12 @@ plot_dose_toxicity <- function(pathway, skeleton, target, level = 0.9) {
     ggplot2::scale_y_continuous(limits = c(0, 1)) +
     ggplot2::labs(
       x = "Dose level",
-      y = sprintf("P(DLT): posterior mean and %g%% CrI", 100 * level),
+      y = "P(DLT)",
       caption = sprintf(
-        "Grey dashed: prior. Dotted: target (%g). Filled: recommended dose.",
-        target
+        paste("Lines: posterior mean; grey dashed: prior. Bands: %g%%",
+              "credible intervals. Dotted: target (%g). Filled point:",
+              "recommended dose."),
+        100 * level, target
       )
     ) +
     theme_dtp() +
