@@ -65,12 +65,16 @@ test_that("projected follow-up is drawn only for Ongoing patients", {
   expect_equal(dashed$xend, c(34, 41) + 29)
 })
 
-test_that("dose-toxicity data has the prior and each key-day posterior", {
-  d <- dose_toxicity_data(pathway, skeleton, level = 0.9)
+test_that("dose-toxicity data has one panel per key day, with the prior", {
+  d <- dose_toxicity_data(pathway, skeleton, target, level = 0.9)
   fits <- key_fits(pathway)
-  expect_equal(levels(d$curve),
-               c("Prior", vapply(fits, `[[`, character(1), "curve")))
-  expect_equal(d$prob_tox[d$curve == "Prior"], skeleton)
+  expect_equal(nlevels(d$panel), length(fits))
+  expect_equal(unique(d$curve[d$role != "prior"]),
+               vapply(fits, `[[`, character(1), "curve"))
+  expect_match(levels(d$panel)[1], "Current \\(day 50\\)\nRecommended dose 2")
+  for (panel in levels(d$panel)) {
+    expect_equal(d$prob_tox[d$panel == panel & d$role == "prior"], skeleton)
+  }
 
   current <- d[d$role == "current", ]
   expect_equal(current$prob_tox, escalation::mean_prob_tox(fits[[1]]$fit))
@@ -83,6 +87,34 @@ test_that("dose-toxicity data has the prior and each key-day posterior", {
   expect_equal(rec$upper, tbl$upper)
 })
 
+test_that("credible intervals are centred on their posterior means", {
+  # Review of #7: dodged intervals sat beside their points.
+  plot <- plot_dose_toxicity(pathway, skeleton, target)
+  bars <- layer_data_of(plot, "GeomErrorbar")
+  # Last layer: posterior points.
+  points <- ggplot2::ggplot_build(plot)$data[[length(plot$layers)]]
+  expect_equal(bars$x, points$x)
+  expect_equal(bars$PANEL, points$PANEL)
+  expect_true(all(bars$ymin <= points$y & points$y <= bars$ymax))
+})
+
+test_that("an MTD estimate the rules do not allow is named in its tooltip", {
+  # Three patients at dose 1 without DLT: the model's closest-to-target dose
+  # is above dose 2, but no-skip escalation recommends dose 2.
+  x <- normalise_trial_data(
+    data.frame(dose = 1, entry_day = c(1, 5, 9), status = "Completed"),
+    day_of_assessment = 50, obswin = 30
+  )
+  p <- dtp_pathway(design$parent, x, 50, 30)
+  d <- dose_toxicity_data(p, skeleton, target)
+  current <- d[d$role == "current", ]
+  expect_equal(current$dose[current$recommended], 2)
+  mtd <- current$dose[current$mtd_estimate]
+  expect_gt(mtd, 2)
+  expect_match(current$tooltip[mtd], "MTD estimate")
+  expect_match(current$tooltip[2], "Recommended dose")
+})
+
 test_that("stopped fits are plotted without a recommended dose", {
   stopping <- build_design(skeleton = skeleton, target = target, obswin = 56,
                            stop_confidence = 0.88)
@@ -93,8 +125,9 @@ test_that("stopped fits are plotted without a recommended dose", {
     day_of_assessment = 50, obswin = 56
   )
   p <- dtp_pathway(stopping$parent, x, 50, 56)
-  d <- dose_toxicity_data(p, skeleton)
+  d <- dose_toxicity_data(p, skeleton, target)
   expect_false(any(d$recommended))
+  expect_match(levels(d$panel)[1], "Stop: lowest dose too toxic")
   expect_false(anyNA(d$prob_tox))
   expect_no_error(ggplot2::ggplot_build(plot_dose_toxicity(p, skeleton,
                                                            target)))
@@ -109,6 +142,7 @@ test_that("plots render as ggiraph widgets with tooltips", {
   expect_match(w$x$html, "Patient 1")
   expect_match(w$x$html, "if no new DLTs are observed")
 
-  w2 <- as_girafe(plot_dose_toxicity(pathway, skeleton, target))
-  expect_match(w2$x$html, "Recommended")
+  w2 <- as_girafe(plot_dose_toxicity(pathway, skeleton, target),
+                  height = dose_toxicity_height(pathway))
+  expect_match(w2$x$html, "Recommended dose")
 })
