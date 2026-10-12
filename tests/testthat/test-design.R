@@ -162,3 +162,53 @@ test_that("beta prior from mean and effective sample size", {
   expect_equal(beta_prior_from_mean(0.1, 1), list(a = 0.1, b = 0.9))
   expect_equal(beta_prior_from_mean(0.25, 10), list(a = 2.5, b = 7.5))
 })
+
+test_that("prior MTD distribution covers every dose and sums to 1", {
+  skeleton <- calibrate_skeleton(0.25, 0.05, prior_mtd = 3, num_doses = 5)
+  mu <- prior_mtd_distribution(skeleton, target = 0.25, variance = 1)
+  expect_length(mu, 5)
+  expect_equal(sum(mu), 1)
+  expect_true(all(mu > 0))
+  # A tight prior puts the mass on the prior guess of the MTD.
+  tight <- prior_mtd_distribution(skeleton, target = 0.25, variance = 1e-4)
+  expect_equal(which.max(tight), 3)
+  expect_gt(tight[3], 0.99)
+})
+
+test_that("least informative variance matches a fine grid search", {
+  grid_search <- function(skeleton, target) {
+    kl <- function(sd) {
+      mu <- prior_mtd_distribution(skeleton, target, sd^2)
+      sum(mu * log(mu * length(mu)))
+    }
+    sd <- seq(0.1, 2, by = 0.001)
+    sd[which.min(vapply(sd, kl, numeric(1)))]^2
+  }
+  four_doses <- calibrate_skeleton(0.25, 0.25 / 4, prior_mtd = 3,
+                                   num_doses = 4)
+  five_doses <- calibrate_skeleton(0.25, 0.05, prior_mtd = 1, num_doses = 5)
+  for (skeleton in list(four_doses, five_doses)) {
+    # Within the grid step (0.001 in sd).
+    expect_equal(least_informative_variance(skeleton, 0.25),
+                 grid_search(skeleton, 0.25), tolerance = 2e-3)
+  }
+  expect_equal(least_informative_variance(four_doses, 0.25), 0.3436,
+               tolerance = 1e-3)
+})
+
+test_that("least informative variance is closest to a uniform MTD prior", {
+  skeleton <- c(0.124, 0.25, 0.398, 0.542, 0.666)
+  v <- least_informative_variance(skeleton, 0.25)
+  kl <- function(variance) {
+    mu <- prior_mtd_distribution(skeleton, 0.25, variance)
+    sum(mu * log(mu * length(mu)))
+  }
+  expect_lt(kl(v), kl(v * 0.9))
+  expect_lt(kl(v), kl(v * 1.1))
+})
+
+test_that("least informative variance warns at the edge of its search", {
+  skeleton <- calibrate_skeleton(0.25, 0.05, prior_mtd = 1, num_doses = 5)
+  expect_warning(least_informative_variance(skeleton, 0.25, sd_max = 0.5),
+                 "search limit")
+})
