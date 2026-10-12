@@ -20,6 +20,38 @@ test_that("unrestricted chain reproduces dtptite's wait-then-escalate case", {
   expect_equal(dtptite::dtp_projected_dose(x), 2L)
 })
 
+test_that("full chain matches dtptite's canonical DTP-TITE-CRM design", {
+  # dtptite tests/testthat/test-depth-valve.R, without stop_at_n().
+  canonical <- escalation::get_dfcrm_tite(skeleton = skeleton, target = target,
+                                          model = "empiric", scale = 0.759) |>
+    dtptite::stop_for_beta_binomial_toxicity(a = 1, b = 1, dose = 1,
+                                             tox_threshold = target,
+                                             confidence = 0.88) |>
+    escalation::dont_skip_doses(when_escalating = TRUE,
+                                when_deescalating = TRUE) |>
+    dtptite::apply_dtp(t_max = 35, obswin = 56, verbose = FALSE)
+  ours <- build_design(skeleton, target, obswin = 56, variance = 0.759^2,
+                       global_coherence = FALSE, stop_confidence = 0.88,
+                       stop_a = 1, stop_b = 1, t_max = 35)$dtp
+
+  scenarios <- list(
+    data.frame(dose = c(2, 2, 2, 2), tox = c(0, 1, 0, 0),
+               weight = c(1, 1, 1, 0.3), cohort = 1:4),
+    data.frame(dose = c(1, 1, 1), tox = c(0, 0, 0), weight = c(1, 1, 0.5),
+               cohort = 1:3),
+    data.frame(dose = c(1, 1, 1), tox = c(1, 1, 1), weight = c(1, 1, 1),
+               cohort = 1:3)
+  )
+  for (outcomes in scenarios) {
+    a <- escalation::fit(canonical, outcomes)
+    b <- escalation::fit(ours, outcomes)
+    expect_equal(escalation::recommended_dose(b),
+                 escalation::recommended_dose(a))
+    expect_equal(dtptite::dtp_wait_time(b), dtptite::dtp_wait_time(a))
+    expect_equal(escalation::mean_prob_tox(b), escalation::mean_prob_tox(a))
+  }
+})
+
 test_that("parent design is the DTP design without the projection", {
   outcomes <- data.frame(dose = c(2, 2, 2, 2), tox = c(0, 1, 0, 0),
                          weight = c(1, 1, 1, 0.3), cohort = 1:4)
