@@ -229,11 +229,29 @@ test_that("one-day runs keep a visible dose label", {
   expect_true(all(c("1", "2") %in% labels))
 })
 
-test_that("change-day labels are ink, not the decision colour", {
+test_that("key days are named in the legend, not on the plot", {
+  # Review of #9: close labels at the top of the plot overlapped.
   plot <- plot_timeline(trial, 50, 30, num_doses = 5, pathway = pathway)
+  keys <- ggplot2::get_guide_data(plot, "linetype")
+  expect_equal(keys$.label, c("Assessment, day 50",
+                              "Recommendation changes, day 56"))
   built <- ggplot2::ggplot_build(plot)
-  day_labels <- Filter(function(d) any(grepl("^Day ", d$label)), built$data)
-  expect_equal(unique(day_labels[[1]]$colour), dtp_colours$ink)
+  labels <- unlist(lapply(built$data, function(d) d$label))
+  expect_false(any(grepl("day", labels, ignore.case = TRUE)))
+
+  study <- plot_timeline(trial, 50, 30, num_doses = 5)
+  expect_equal(ggplot2::get_guide_data(study, "linetype")$.label,
+               "Assessment, day 50")
+})
+
+test_that("several changes are listed in one legend entry", {
+  runs <- data.frame(from_day = c(50, 56, 64), to_day = c(55, 63, 70),
+                     dose = c(2L, 3L, 4L), decision = c("S", "E", "E"))
+  several <- pathway
+  several$runs <- runs
+  plot <- plot_timeline(trial, 50, 30, num_doses = 5, pathway = several)
+  expect_equal(ggplot2::get_guide_data(plot, "linetype")$.label[2],
+               "Recommendation changes, days 56, 64")
 })
 
 test_that("posterior colours have 3:1 contrast on white", {
