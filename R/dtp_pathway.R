@@ -53,7 +53,9 @@ dtp_pathway <- function(design, data, day_of_assessment, obswin,
   # Days until every monitored patient completes follow-up; t_max may cap
   # the projected days, but not the complete-follow-up fit.
   complete_wait <- if (any(pending)) {
-    ceiling(max(1 - data$weight[pending]) * obswin)
+    # Rounding first stops float error adding a day, e.g. (1 - 10/30) * 30
+    # is 20.000000000000004.
+    ceiling(round(max(1 - data$weight[pending]) * obswin, 8))
   } else {
     0
   }
