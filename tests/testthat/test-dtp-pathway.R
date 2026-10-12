@@ -144,3 +144,14 @@ test_that("D, S and E runs are split in order", {
   expect_equal(p$runs$to_day, c(14, 19, 20))
   expect_length(p$fits$changes, 3)
 })
+
+test_that("completion day is not pushed back by float error", {
+  # (1 - 10/30) * 30 is 20.000000000000004 in floating point.
+  x <- data.frame(dose = c(1, 1, 1), tox = c(0, 0, 0),
+                  weight = c(1, 1, 10 / 30),
+                  monitored = c(FALSE, FALSE, TRUE))
+  p <- dtp_pathway(tite_crm, x, day_of_assessment = 50, obswin = 30)
+  expect_equal(p$complete_day, 70)
+  expect_equal(max(p$days$day), 70)
+  expect_equal(escalation::weight(p$fits$complete), c(1, 1, 1))
+})
