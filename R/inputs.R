@@ -204,18 +204,18 @@ read_trial_file <- function(path, name = path, obswin) {
 
 #' Example trial data, also offered as the upload template
 #'
-#' For the default design (30-day window, assessment on day 50), every
-#' patient received the dose the design recommended on their entry day:
-#' three patients complete dose 1, dose 2 follows (one completes, one is
-#' withdrawn on day 32), a DLT at dose 3 on day 31 leads back to dose 2.
-#' On day 50 the design stays at dose 2, escalating to dose 3 from day 56
-#' if no new DLTs are observed.
+#' Cohorts of three for the default design (30-day window, assessment on
+#' day 50), each patient at the dose the design recommended on their entry
+#' day: three patients complete dose 1; at dose 2 one completes, one is
+#' withdrawn on day 24 and one has a DLT on day 33, so the third cohort
+#' stays at dose 2. On day 50 the design stays at dose 2, escalating to
+#' dose 3 from day 63 if no new DLTs are observed.
 example_trial_data <- function() {
   data.frame(
-    dose = c(1, 1, 1, 2, 2, 3, 2, 2),
-    entry_day = c(1, 7, 10, 16, 17, 21, 39, 41),
+    dose = c(1, 1, 1, 2, 2, 2, 2, 2, 2),
+    entry_day = c(1, 2, 7, 9, 12, 14, 36, 37, 42),
     status = c("Completed", "Completed", "Completed", "Completed",
-               "Withdrawn", "DLT", "Ongoing", "Ongoing"),
-    days_followed = c(NA, NA, NA, NA, 16, 11, NA, NA)
+               "Withdrawn", "DLT", "Ongoing", "Ongoing", "Ongoing"),
+    days_followed = c(NA, NA, NA, NA, 13, 20, NA, NA, NA)
   )
 }
