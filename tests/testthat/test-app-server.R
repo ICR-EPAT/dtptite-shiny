@@ -103,3 +103,15 @@ test_that("the default stopping prior follows the target", {
                  "Be(2, 8)", fixed = TRUE)
   })
 })
+
+test_that("the next-change tile lists every change after day 50", {
+  shiny::testServer(app_server, {
+    start(session)
+    html <- as.character(output$summary_boxes$html)
+    # The example stays at dose 2, then escalates from day 56.
+    expect_match(html, "Day 56")
+    expect_match(html, "Escalate to dose level 3")
+    # The separate recommendation card is gone.
+    expect_error(output$recommendation, "hasn't been defined")
+  })
+})

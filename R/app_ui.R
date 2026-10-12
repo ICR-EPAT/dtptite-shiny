@@ -2,7 +2,7 @@
 #
 # Sidebar: an accordion with one panel per group of design settings, and
 # the update button. Main: trial data, then the recommendation (value
-# boxes and text) and a tabbed card with the plots and the model table.
+# boxes) and a tabbed card with the plots and the model table.
 
 #' Neutral light theme: system fonts, navy accent, ICR logo grey
 app_theme <- function() {
@@ -270,7 +270,6 @@ app_ui <- function() {
     ),
     data_card(),
     shiny::uiOutput("summary_boxes"),
-    shiny::uiOutput("recommendation"),
     results_tabs(),
     htmltools::p(
       class = "small text-secondary text-center mt-2",

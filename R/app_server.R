@@ -86,12 +86,19 @@ summary_boxes <- function(result) {
         "None",
       showcase = bsicons::bs_icon("calendar-event"),
       theme = "light",
-      htmltools::p(if (nrow(later)) {
-        describe <- describe_dose(later$dose[1], p$current_dose)
-        paste0(toupper(substring(describe, 1, 1)), substring(describe, 2))
+      # Every later change, so nothing is lost when there are several.
+      if (nrow(later)) {
+        lapply(seq_len(nrow(later)), function(i) {
+          what <- describe_dose(later$dose[i], p$current_dose)
+          htmltools::p(class = "mb-0", if (i == 1) {
+            paste0(toupper(substring(what, 1, 1)), substring(what, 2))
+          } else {
+            sprintf("Then from day %d: %s", later$from_day[i], what)
+          })
+        })
       } else {
-        "The recommendation holds."
-      })
+        htmltools::p("The recommendation holds.")
+      }
     ),
     bslib::value_box(
       title = "DLT follow-up completes",
@@ -283,18 +290,6 @@ app_server <- function(input, output, session) {
                             "No recommendation: please fix the following."))
     }
     summary_boxes(r)
-  })
-  output$recommendation <- shiny::renderUI({
-    msg <- recommendation_text(fitted()$pathway)
-    bslib::card(
-      bslib::card_body(
-        htmltools::p(class = "lead mb-1", msg$headline),
-        if (length(msg$details)) {
-          htmltools::tags$ul(class = "mb-0", lapply(msg$details,
-                                                    htmltools::tags$li))
-        }
-      )
-    )
   })
   output$timeline_plot <- ggiraph::renderGirafe({
     r <- fitted()
