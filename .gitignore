@@ -1,0 +1,21 @@
+# Legacy app and spec: kept locally for reference only (contains .RData,
+# .Rhistory and shinyapps.io account records)
+legacy_code_and_spec/
+
+# R session files
+.Rhistory
+.Rapp.history
+.RData
+.RDataTmp
+.Ruserdata
+.Renviron
+.Rproj.user/
+
+# Deployment and build output
+rsconnect/
+_site/
+site/
+
+# Local dev files
+.claude/
+claude.md
