@@ -1,8 +1,13 @@
-# Example trial (30-day window, assessed on day 50) with the dtptite
-# skeleton and target.
-skeleton <- c(0.124, 0.25, 0.398, 0.542, 0.666)
+# Example trial (30-day window, assessed on day 50) with the app's default
+# design: stay at dose 2, escalate to dose 3 from day 56.
 target <- 0.25
-design <- build_design(skeleton = skeleton, target = target, obswin = 30)
+skeleton <- skeleton_from_settings("calibrate", target, target / 4,
+                                   prior_mtd = 1, num_doses = 5,
+                                   text = "")$skeleton
+design <- build_design(skeleton = skeleton, target = target, obswin = 30,
+                       variance = least_informative_variance(skeleton,
+                                                             target),
+                       stop_confidence = 0.7, stop_n_min = 2)
 trial <- normalise_trial_data(example_trial_data(), day_of_assessment = 50,
                               obswin = 30)
 pathway <- dtp_pathway(design$parent, trial, day_of_assessment = 50,
@@ -20,11 +25,11 @@ test_that("timeline ends follow-up on the last day observed", {
   # Entry day counts as day 1 of follow-up.
   expect_equal(d$last_day[d$status == "Completed"],
                d$entry_day[d$status == "Completed"] + 29)
-  expect_equal(d$last_day[d$status == "DLT"], 18 + 12 - 1)
-  expect_equal(d$last_day[d$status == "Withdrawn"], 22 + 9 - 1)
+  expect_equal(d$last_day[d$status == "DLT"], 21 + 11 - 1)
+  expect_equal(d$last_day[d$status == "Withdrawn"], 17 + 16 - 1)
   expect_equal(d$last_day[d$status == "Ongoing"], c(50, 50))
-  expect_equal(d$window_end[d$status == "Ongoing"], c(34, 41) + 29)
-  expect_match(d$tooltip[5], "DLT: 12 of 30 days \\(weight 1.00\\)")
+  expect_equal(d$window_end[d$status == "Ongoing"], c(39, 41) + 29)
+  expect_match(d$tooltip[6], "DLT: 11 of 30 days \\(weight 1.00\\)")
 })
 
 test_that("study timeline has one row per patient", {
@@ -62,7 +67,7 @@ test_that("projected follow-up is drawn only for Ongoing patients", {
   dashed <- ggplot2::ggplot_build(p)$data[[2]]
   # The y scale is reversed so patient 1 is on top.
   expect_equal(-dashed$y, trial$patient[trial$status == "Ongoing"])
-  expect_equal(dashed$xend, c(34, 41) + 29)
+  expect_equal(dashed$xend, c(39, 41) + 29)
 })
 
 test_that("dose-toxicity data has one panel per key day, with the prior", {
@@ -212,8 +217,9 @@ test_that("one-day runs keep a visible dose label", {
                   tox = c(0, 0, 0, 1, 0, 0, 1),
                   weight = c(0.2, 0.8, 0.2, 1, 0.2, 1, 1),
                   monitored = c(TRUE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE))
-  tite_crm <- escalation::get_dfcrm_tite(skeleton = skeleton,
-                                         target = target)
+  tite_crm <- escalation::get_dfcrm_tite(
+    skeleton = c(0.124, 0.25, 0.398, 0.542, 0.666), target = target
+  )
   p <- dtp_pathway(tite_crm, x, day_of_assessment = 100, obswin = 5)
   expect_equal(p$runs$to_day - p$runs$from_day, c(3, 0))
 

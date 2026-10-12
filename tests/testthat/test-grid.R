@@ -14,8 +14,8 @@ test_that("canonical trial data is typed and sorted by entry day", {
 test_that("grid shows derived days and weights, read-only where derived", {
   g <- grid_frame(example, day_of_assessment = 50, obswin = 30)
   expect_equal(names(g), grid_columns)
-  expect_equal(g$`Days followed`, c(30, 30, 30, 30, 12, 9, 17, 10))
-  expect_equal(g$Weight, c(1, 1, 1, 1, 1, 9 / 30, 17 / 30, 10 / 30))
+  expect_equal(g$`Days followed`, c(30, 30, 30, 30, 16, 11, 12, 10))
+  expect_equal(g$Weight, c(1, 1, 1, 1, 16 / 30, 1, 12 / 30, 10 / 30))
 
   hot <- render_grid(g, num_doses = 5)
   read_only <- vapply(hot$x$cell, function(c) c$row, numeric(1))
@@ -33,7 +33,7 @@ test_that("switching to DLT keeps the days the grid showed", {
   g$Status[7] <- "DLT"
   back <- trial_from_grid(g)
   expect_equal(back$status[7], "DLT")
-  expect_equal(back$days_followed[7], 17)
+  expect_equal(back$days_followed[7], 12)
 })
 
 test_that("incomplete rows keep the grid usable", {
@@ -51,7 +51,7 @@ test_that("incomplete rows keep the grid usable", {
 test_that("a new patient enters on T_A at the last dose", {
   added <- add_patient(example, day_of_assessment = 50)
   expect_equal(nrow(added), 9)
-  expect_equal(added$dose[9], 3)
+  expect_equal(added$dose[9], 2)
   expect_equal(added$entry_day[9], 50)
   expect_equal(added$status[9], "Ongoing")
   first <- add_patient(canonical_trial(example[0, ]), 1)
