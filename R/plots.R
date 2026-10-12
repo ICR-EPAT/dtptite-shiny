@@ -301,7 +301,7 @@ plot_dose_toxicity <- function(pathway, skeleton, variance, target,
                                level = 0.9) {
   d <- dose_toxicity_data(pathway, skeleton, variance, target, level)
   role_colour <- c(current = dtp_colours$accent, change = "#CC79A7",
-                   complete = "#56B4E9")
+                   complete = "#1F7A8C")
   prior <- d[d$role == "prior", , drop = FALSE]
   post <- d[d$role != "prior", , drop = FALSE]
   post$colour <- role_colour[post$role]
