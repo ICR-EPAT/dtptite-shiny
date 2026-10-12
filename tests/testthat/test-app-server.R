@@ -115,3 +115,13 @@ test_that("the next-change tile lists every change after day 50", {
     expect_error(output$recommendation, "hasn't been defined")
   })
 })
+
+test_that("the next-change icon shows the next decision in its colour", {
+  shiny::testServer(app_server, {
+    start(session)
+    html <- as.character(output$summary_boxes$html)
+    # Next change in the example: escalate.
+    expect_match(html, paste0("color:", dtp_colours$decision[["E"]]),
+                 fixed = TRUE)
+  })
+})

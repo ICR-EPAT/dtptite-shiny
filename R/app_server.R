@@ -84,7 +84,16 @@ summary_boxes <- function(result) {
       title = "Next change if no new DLTs",
       value = if (nrow(later)) sprintf("Day %d", later$from_day[1]) else
         "None",
-      showcase = bsicons::bs_icon("calendar-event"),
+      # Neutral tile; the icon shows the next decision in its colour, as on
+      # the pathway bar.
+      showcase = if (nrow(later)) {
+        bsicons::bs_icon(
+          decision_icons[[later$decision[1]]],
+          style = paste0("color:", dtp_colours$decision[[later$decision[1]]])
+        )
+      } else {
+        bsicons::bs_icon("calendar-check")
+      },
       theme = "light",
       # Every later change, so nothing is lost when there are several.
       if (nrow(later)) {
