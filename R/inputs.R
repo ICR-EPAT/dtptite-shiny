@@ -107,6 +107,13 @@ validate_trial_data <- function(data, num_doses, day_of_assessment, obswin) {
       "follow-up runs past the day of assessment (day %d).",
       day_of_assessment)))
   }
+  bad <- which(data$status %in% "Completed" & !is.na(data$entry_day) &
+                 data$entry_day + obswin - 1 > day_of_assessment)
+  if (length(bad)) {
+    problems <- c(problems, row_msg(bad, sprintf(
+      "cannot have completed the %d-day window by the day of assessment (day %d).",
+      obswin, day_of_assessment)))
+  }
   problems
 }
 

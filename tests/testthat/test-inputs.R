@@ -84,3 +84,28 @@ test_that("example data is valid for the default design", {
   expect_length(validate_trial_data(example_trial_data(), num_doses = 5,
                                     day_of_assessment = 50, obswin = 30), 0)
 })
+
+test_that("completed patients must have finished the window by T_A", {
+  d <- data.frame(dose = c(1, 1), entry_day = c(21, 45),
+                  status = "Completed", days_followed = NA)
+  problems <- validate_trial_data(d, num_doses = 5, day_of_assessment = 50,
+                                  obswin = 30)
+  expect_length(problems, 1)
+  expect_match(problems, "Patient\\(s\\) 2: cannot have completed")
+})
+
+test_that("header-only uploads give an empty table, not an error", {
+  path <- withr::local_tempfile(fileext = ".csv")
+  writeLines("dose,entry_day,status", path)
+  x <- read_trial_file(path, obswin = 30)
+  expect_equal(nrow(x), 0)
+  expect_equal(validate_trial_data(x, 5, 50, 30), "Enter at least one patient.")
+  expect_equal(nrow(normalise_trial_data(x[c("dose", "entry_day", "status")],
+                                         50, 30)), 0)
+})
+
+test_that("empty uploads are rejected with a clear message", {
+  path <- withr::local_tempfile(fileext = ".csv")
+  writeLines("", path)
+  expect_error(read_trial_file(path, obswin = 30), "The file is empty")
+})
