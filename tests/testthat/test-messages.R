@@ -116,7 +116,7 @@ test_that("stopped fits give Stop rows instead of an error", {
 
   shown <- format_model_table(tbl)
   expect_equal(shown[["Recommended dose"]], c("Stop", "Stop"))
-  expect_equal(shown[["Posterior DLT rate [90% CI]"]], c("—", "—"))
+  expect_equal(shown[["Posterior DLT rate [90% CrI]"]], c("—", "—"))
 })
 
 test_that("posterior interval matches dfcrm, as legacy displayed it", {
@@ -142,7 +142,7 @@ test_that("interval level sets the width and the column name", {
   expect_true(all(narrow$lower <= narrow$prob_tox &
                     narrow$prob_tox <= narrow$upper))
   expect_equal(names(format_model_table(narrow))[3],
-               "Posterior DLT rate [50% CI]")
+               "Posterior DLT rate [50% CrI]")
   expect_equal(format_model_table(wide, digits = 2)[[3]][1],
                sprintf("%.2f [%.2f, %.2f]", wide$prob_tox[1], wide$lower[1],
                        wide$upper[1]))

@@ -67,6 +67,15 @@ plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
   n <- nrow(d)
   ongoing <- d[d$status == "Ongoing" & d$window_end > d$last_day, ,
                drop = FALSE]
+  change_days <- if (!is.null(pathway)) pathway$runs$from_day[-1]
+  day_keys <- c(
+    sprintf("Assessment, day %d", day_of_assessment),
+    if (length(change_days)) {
+      sprintf("Recommendation changes, day%s %s",
+              if (length(change_days) > 1) "s" else "",
+              paste(change_days, collapse = ", "))
+    }
+  )
   present <- intersect(names(status_shapes), as.character(d$status))
 
   p <- ggplot2::ggplot(d, ggplot2::aes(y = patient)) +
@@ -93,12 +102,14 @@ plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
       hjust = 1, nudge_x = -0.6, size = 3, fontface = "bold",
       show.legend = FALSE
     ) +
-    ggplot2::geom_vline(xintercept = day_of_assessment, linetype = "dashed",
-                        colour = dtp_colours$ink, linewidth = 0.4) +
-    ggplot2::annotate("text", x = day_of_assessment, y = 0.2,
-                      label = sprintf("Assessment, day %d", day_of_assessment),
-                      hjust = -0.05, vjust = 0, size = 3,
-                      colour = dtp_colours$ink) +
+    # Key days are named in the legend, not on the plot, where close days
+    # would overlap.
+    ggplot2::geom_vline(
+      data = data.frame(x = day_of_assessment, key = day_keys[1]),
+      ggplot2::aes(xintercept = x, linetype = key),
+      colour = dtp_colours$ink, linewidth = 0.4,
+      key_glyph = key_only_for("dashed", ggplot2::draw_key_path)
+    ) +
     # Colours fixed by dose level; the legend lists the doses given.
     ggplot2::scale_colour_manual(
       "Dose level",
@@ -119,14 +130,21 @@ plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
 
   labels <- paste0("P", d$patient)
   if (!is.null(pathway)) {
-    p <- add_pathway_row(p, pathway, row = n + 1)
+    p <- add_pathway_row(p, pathway, row = n + 1, change_key = day_keys[2])
     labels <- c(labels, "Next")
   }
-  p + ggplot2::scale_y_reverse(breaks = seq_along(labels), labels = labels,
-                               expand = ggplot2::expansion(add = 0.6))
+  p +
+    ggplot2::scale_y_reverse(breaks = seq_along(labels), labels = labels,
+                             expand = ggplot2::expansion(add = 0.6)) +
+    ggplot2::scale_linetype_manual(
+      "Key days", values = c("dashed", "22")[seq_along(day_keys)],
+      breaks = day_keys, limits = day_keys,
+      guide = ggplot2::guide_legend(order = 4)
+    ) +
+    ggplot2::theme(legend.key.width = ggplot2::unit(1.6, "lines"))
 }
 
-add_pathway_row <- function(p, pathway, row) {
+add_pathway_row <- function(p, pathway, row, change_key = NULL) {
   # Each run covers its days up to the start of the next; the last one
   # holds on after it, so it is drawn a day past its last projected day.
   runs <- pathway$runs
@@ -173,15 +191,12 @@ add_pathway_row <- function(p, pathway, row) {
       colour = dtp_colours$ink
     ) +
     ggplot2::geom_vline(
-      data = changes, ggplot2::aes(xintercept = start),
+      data = transform(changes, key = rep(change_key, nrow(changes))),
+      ggplot2::aes(xintercept = start, linetype = key),
       colour = dtp_colours$decision[as.character(changes$decision)],
-      linetype = "dashed", linewidth = 0.4
-    ) +
-    ggplot2::geom_text(
-      data = changes,
-      ggplot2::aes(x = start, y = 0.2, label = paste("Day", from_day)),
-      inherit.aes = FALSE, hjust = -0.05, vjust = 0, size = 3,
-      colour = dtp_colours$ink
+      linewidth = 0.5,
+      key_glyph = key_only_for("22", ggplot2::draw_key_path,
+                               colour = dtp_colours$muted)
     ) +
     ggplot2::scale_fill_manual(
       "Next patient", values = dtp_colours$decision,

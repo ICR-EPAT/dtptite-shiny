@@ -2,18 +2,16 @@
 
 #' Calibrate a TITE-CRM skeleton
 #'
-#' Wraps [dfcrm::getprior()] using the same working model as the fit, so
-#' the calibrated skeleton matches the model it is used with (the legacy
-#' app calibrated with the logistic model but fitted the empiric one).
+#' Wraps [dfcrm::getprior()] with the empiric working model, the model the
+#' design always fits (the legacy app calibrated with the logistic model
+#' but fitted the empiric one).
 #'
 #' @param target Target DLT rate.
 #' @param halfwidth Half-width of the indifference interval.
 #' @param prior_mtd Prior guess of the MTD (dose level).
 #' @param num_doses Number of dose levels.
-#' @param model Working model, `"empiric"` (default) or `"logistic"`.
 #' @return Numeric vector of prior DLT probabilities, one per dose.
-calibrate_skeleton <- function(target, halfwidth, prior_mtd, num_doses,
-                               model = "empiric") {
+calibrate_skeleton <- function(target, halfwidth, prior_mtd, num_doses) {
   stopifnot(prior_mtd >= 1, prior_mtd <= num_doses, halfwidth > 0)
   if (target - halfwidth <= 0 || target + halfwidth >= 1) {
     stop("The indifference interval target +/- halfwidth must lie within ",
@@ -23,7 +21,7 @@ calibrate_skeleton <- function(target, halfwidth, prior_mtd, num_doses,
   # a clearer error instead.
   skeleton <- suppressWarnings(
     dfcrm::getprior(halfwidth = halfwidth, target = target, nu = prior_mtd,
-                    nlevel = num_doses, model = model)
+                    nlevel = num_doses, model = "empiric")
   )
   if (anyNA(skeleton) || any(skeleton <= 0 | skeleton >= 1) ||
       is.unsorted(skeleton, strictly = TRUE)) {
@@ -123,7 +121,9 @@ beta_prior_from_mean <- function(mean, ess) {
 #'   lowest dose, or `NULL` for no stopping rule.
 #' @param stop_n_min Patients needed at the lowest dose before the stopping
 #'   rule applies.
-#' @param stop_a,stop_b Beta prior for the stopping rule.
+#' @param stop_a,stop_b Beta prior for the stopping rule. Defaults to the
+#'   weakly informative Be(target, 1 - target): mean at the target, effective
+#'   sample size 1.
 #' @param t_max Longest wait DTP considers, in days. Defaults to `obswin`.
 #' @return A list with `parent` (the design without DTP, refitted for each
 #'   projected day) and `dtp` (the full design).
@@ -131,7 +131,7 @@ build_design <- function(skeleton, target, obswin, variance = 1.34,
                          no_skip_esc = TRUE, no_skip_deesc = TRUE,
                          global_coherence = TRUE,
                          stop_confidence = NULL, stop_n_min = 1,
-                         stop_a = 0.1, stop_b = 0.9,
+                         stop_a = target, stop_b = 1 - target,
                          t_max = obswin) {
   stopifnot(all(skeleton > 0), all(skeleton < 1), !is.unsorted(skeleton),
             variance > 0)

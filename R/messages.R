@@ -101,7 +101,7 @@ key_fits <- function(pathway) {
 #' One row per [key_fits()] entry.
 #'
 #' @param pathway A `dtp_pathway`.
-#' @param level Coverage of the posterior interval.
+#' @param level Coverage of the posterior credible interval.
 #' @return A data frame with `curve`, `day`, `dose` (`NA` when stopped),
 #'   `decision`, and the posterior DLT probability at `dose`: `prob_tox`,
 #'   `lower`, `upper` (all `NA` when stopped). `level` is kept as an
@@ -131,7 +131,7 @@ model_table <- function(pathway, level = 0.9) {
 #' @param table A `model_table()` result.
 #' @param digits Decimal places for probabilities.
 #' @return A character data frame with columns `Curve`, `Recommended dose`
-#'   and `Posterior DLT rate [<level> CI]`; stopped rows read "Stop" and
+#'   and `Posterior DLT rate [<level> CrI]`; stopped rows read "Stop" and
 #'   have no posterior.
 format_model_table <- function(table, digits = 3) {
   num <- function(x) formatC(x, format = "f", digits = digits)
@@ -144,7 +144,7 @@ format_model_table <- function(table, digits = 3) {
     post
   )
   names(out) <- c("Curve", "Recommended dose",
-                  sprintf("Posterior DLT rate [%g%% CI]",
+                  sprintf("Posterior DLT rate [%g%% CrI]",
                           100 * attr(table, "level")))
   out
 }

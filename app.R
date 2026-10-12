@@ -1,12 +1,5 @@
 library(shiny)
 library(bslib)
 
-ui <- page_sidebar(
-  title = "DTP-TITE-CRM",
-  sidebar = sidebar(),
-  card(card_body("Under construction."))
-)
-
-server <- function(input, output, session) {}
-
-shinyApp(ui, server)
+# Helpers in R/ are sourced automatically by shiny::runApp().
+shinyApp(app_ui(), app_server)
