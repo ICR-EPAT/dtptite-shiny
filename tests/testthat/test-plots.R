@@ -66,7 +66,7 @@ test_that("projected follow-up is drawn only for Ongoing patients", {
 })
 
 test_that("dose-toxicity data has one panel per key day, with the prior", {
-  d <- dose_toxicity_data(pathway, skeleton, target, level = 0.9)
+  d <- dose_toxicity_data(pathway, skeleton, 1.34, target, level = 0.9)
   fits <- key_fits(pathway)
   expect_equal(nlevels(d$panel), length(fits))
   expect_equal(unique(d$curve[d$role != "prior"]),
@@ -87,15 +87,38 @@ test_that("dose-toxicity data has one panel per key day, with the prior", {
   expect_equal(rec$upper, tbl$upper)
 })
 
-test_that("credible intervals are centred on their posterior means", {
-  # Review of #7: dodged intervals sat beside their points.
-  plot <- plot_dose_toxicity(pathway, skeleton, target)
-  bars <- layer_data_of(plot, "GeomErrorbar")
-  # Last layer: posterior points.
-  points <- ggplot2::ggplot_build(plot)$data[[length(plot$layers)]]
-  expect_equal(bars$x, points$x)
-  expect_equal(bars$PANEL, points$PANEL)
-  expect_true(all(bars$ymin <= points$y & points$y <= bars$ymax))
+test_that("prior has its credible interval under the empiric model", {
+  d <- dose_toxicity_data(pathway, skeleton, variance = 1.34, target)
+  prior <- d[d$role == "prior" & d$panel == levels(d$panel)[1], ]
+  z <- stats::qnorm(0.95)
+  expect_equal(prior$lower, skeleton^exp(z * sqrt(1.34)))
+  expect_equal(prior$upper, skeleton^exp(-z * sqrt(1.34)))
+  expect_true(all(prior$lower < skeleton & skeleton < prior$upper))
+  expect_match(prior$tooltip[1], "90% CrI")
+
+  # A smaller prior variance narrows the band.
+  narrow <- dose_toxicity_data(pathway, skeleton, variance = 0.25, target)
+  expect_true(all(narrow$upper[narrow$role == "prior"] <
+                    d$upper[d$role == "prior"]))
+})
+
+test_that("bands follow the credible intervals; only recommended is filled", {
+  # Review of #7: intervals sat beside their points, and the prior was
+  # drawn with filled points too.
+  plot <- plot_dose_toxicity(pathway, skeleton, 1.34, target)
+  built <- ggplot2::ggplot_build(plot)
+  d <- dose_toxicity_data(pathway, skeleton, 1.34, target)
+  post <- d[d$role != "prior", ]
+
+  ribbons <- built$data[[2]]
+  expect_equal(ribbons$ymin, post$lower)
+  expect_equal(ribbons$ymax, post$upper)
+  expect_equal(built$data[[1]]$ymin, d$lower[d$role == "prior"])
+
+  prior_points <- built$data[[5]]
+  expect_true(all(prior_points$fill == "white"))
+  post_points <- built$data[[length(plot$layers)]]
+  expect_equal(post_points$fill != "white", post$recommended)
 })
 
 test_that("an MTD estimate the rules do not allow is named in its tooltip", {
@@ -106,7 +129,7 @@ test_that("an MTD estimate the rules do not allow is named in its tooltip", {
     day_of_assessment = 50, obswin = 30
   )
   p <- dtp_pathway(design$parent, x, 50, 30)
-  d <- dose_toxicity_data(p, skeleton, target)
+  d <- dose_toxicity_data(p, skeleton, 1.34, target)
   current <- d[d$role == "current", ]
   expect_equal(current$dose[current$recommended], 2)
   mtd <- current$dose[current$mtd_estimate]
@@ -125,12 +148,13 @@ test_that("stopped fits are plotted without a recommended dose", {
     day_of_assessment = 50, obswin = 56
   )
   p <- dtp_pathway(stopping$parent, x, 50, 56)
-  d <- dose_toxicity_data(p, skeleton, target)
+  d <- dose_toxicity_data(p, skeleton, 1.34, target)
   expect_false(any(d$recommended))
   expect_match(levels(d$panel)[1], "Stop: lowest dose too toxic")
   expect_false(anyNA(d$prob_tox))
-  expect_no_error(ggplot2::ggplot_build(plot_dose_toxicity(p, skeleton,
-                                                           target)))
+  expect_no_error(
+    ggplot2::ggplot_build(plot_dose_toxicity(p, skeleton, 1.34, target))
+  )
   band <- layer_data_of(plot_timeline(x, 50, 56, 5, p), "GeomRect")
   expect_equal(band$fill, unname(dtp_colours$decision["Stop"]))
 })
@@ -142,7 +166,7 @@ test_that("plots render as ggiraph widgets with tooltips", {
   expect_match(w$x$html, "Patient 1")
   expect_match(w$x$html, "if no new DLTs are observed")
 
-  w2 <- as_girafe(plot_dose_toxicity(pathway, skeleton, target),
+  w2 <- as_girafe(plot_dose_toxicity(pathway, skeleton, 1.34, target),
                   height = dose_toxicity_height(pathway))
   expect_match(w2$x$html, "Recommended dose")
 })
