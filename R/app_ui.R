@@ -87,12 +87,20 @@ prior_panel <- function() {
       )
     ),
     shiny::uiOutput("skeleton_preview"),
-    shiny::numericInput(
-      "variance",
+    shiny::radioButtons(
+      "variance_type",
       with_help("Prior variance of the model parameter",
-                "Empiric model: DLT probability = skeleton ^ exp(β), β ~ N(0, variance). A smaller variance gives a more informative prior."),
-      value = 0.65, min = 0.01, step = 0.05
-    )
+                "Empiric model: DLT probability = skeleton ^ exp(\u03b2), \u03b2 ~ N(0, variance). The least informative variance makes every dose about equally likely to be the MTD a priori (Lee and Cheung, 2011); a smaller variance gives a more informative prior."),
+      choices = c("Least informative" = "least_informative",
+                  "Set my own" = "own"),
+      inline = TRUE
+    ),
+    shiny::conditionalPanel(
+      "input.variance_type == 'own'",
+      shiny::numericInput("variance", "Variance", value = 1, min = 0.01,
+                          step = 0.05)
+    ),
+    shiny::uiOutput("variance_preview")
   )
 }
 

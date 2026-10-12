@@ -16,12 +16,15 @@ run_model <- function(settings, trial) {
   skeleton <- skeleton_from_settings(s$prior_type, s$target, s$halfwidth,
                                      s$prior_mtd, s$num_doses,
                                      s$skeleton_text)
+  variance <- variance_from_settings(s$variance_type, s$variance,
+                                     skeleton$skeleton, s$target)
   stop_prior <- stopping_prior(s$stop_default_prior, s$stop_prior_mean,
                                s$stop_prior_ess)
   problems <- c(
-    validate_settings(s$obswin, s$variance, s$day_of_assessment,
+    validate_settings(s$obswin, s$day_of_assessment,
                       if (isTRUE(s$stop_on)) s$stop_n_min else 0),
     skeleton$problem,
+    variance$problem,
     if (isTRUE(s$stop_on)) stop_prior$problem
   )
   if (length(problems) == 0) {
@@ -35,7 +38,7 @@ run_model <- function(settings, trial) {
   tryCatch({
     design <- build_design(
       skeleton = skeleton$skeleton, target = s$target, obswin = s$obswin,
-      variance = s$variance, no_skip_esc = s$no_skip_esc,
+      variance = variance$variance, no_skip_esc = s$no_skip_esc,
       no_skip_deesc = s$no_skip_deesc,
       global_coherence = s$global_coherence,
       stop_confidence = if (isTRUE(s$stop_on)) s$stop_confidence,
@@ -46,7 +49,8 @@ run_model <- function(settings, trial) {
     pathway <- dtp_pathway(design$parent, data, s$day_of_assessment,
                            s$obswin)
     list(problems = character(), design = design, data = data,
-         pathway = pathway, skeleton = skeleton$skeleton, settings = s)
+         pathway = pathway, skeleton = skeleton$skeleton,
+         variance = variance$variance, settings = s)
   }, error = function(e) {
     list(problems = paste("The model could not be fitted:",
                           conditionMessage(e)))
@@ -122,7 +126,8 @@ app_server <- function(input, output, session) {
 
   settings <- shiny::reactive({
     ids <- c("num_doses", "target", "obswin", "prior_type", "prior_mtd",
-             "halfwidth", "skeleton_text", "variance", "no_skip_esc",
+             "halfwidth", "skeleton_text", "variance_type", "variance",
+             "no_skip_esc",
              "no_skip_deesc", "global_coherence", "stop_on",
              "stop_confidence", "stop_n_min", "stop_default_prior",
              "stop_prior_mean", "stop_prior_ess", "day_of_assessment")
@@ -193,16 +198,41 @@ app_server <- function(input, output, session) {
   )
 
   # --- Prior previews ----------------------------------------------------
-  output$skeleton_preview <- shiny::renderUI({
+  current_skeleton <- shiny::reactive({
     s <- settings()
-    sk <- skeleton_from_settings(s$prior_type, s$target, s$halfwidth,
-                                 s$prior_mtd, s$num_doses, s$skeleton_text)
+    skeleton_from_settings(s$prior_type, s$target, s$halfwidth,
+                           s$prior_mtd, s$num_doses, s$skeleton_text)
+  })
+  output$skeleton_preview <- shiny::renderUI({
+    sk <- current_skeleton()
     if (!is.null(sk$problem)) {
       htmltools::div(class = "form-text text-danger mb-3", sk$problem)
     } else {
       htmltools::div(class = "form-text form-text-skeleton mb-3",
                      "Skeleton: ", paste(sprintf("%.3f", sk$skeleton),
                                          collapse = ", "))
+    }
+  })
+  least_informative <- shiny::reactive({
+    variance_from_settings("least_informative", NA,
+                           current_skeleton()$skeleton, input$target)
+  })
+  output$variance_preview <- shiny::renderUI({
+    shiny::req(input$variance_type == "least_informative")
+    v <- least_informative()
+    if (!is.null(v$problem)) {
+      htmltools::div(class = "form-text text-danger mb-3", v$problem)
+    } else if (!is.null(v$variance)) {
+      htmltools::div(class = "form-text form-text-skeleton mb-3",
+                     sprintf("Variance: %.3f, calculated from the skeleton.",
+                             v$variance))
+    }
+  })
+  # Start "Set my own" from the calculated value.
+  shiny::observeEvent(input$variance_type, ignoreInit = TRUE, {
+    v <- shiny::isolate(least_informative()$variance)
+    if (input$variance_type == "own" && !is.null(v)) {
+      shiny::updateNumericInput(session, "variance", value = round(v, 3))
     }
   })
   output$stop_prior_preview <- shiny::renderUI({
@@ -272,7 +302,7 @@ app_server <- function(input, output, session) {
   output$dose_toxicity_plot <- ggiraph::renderGirafe({
     r <- fitted()
     as_girafe(
-      plot_dose_toxicity(r$pathway, r$skeleton, r$settings$variance,
+      plot_dose_toxicity(r$pathway, r$skeleton, r$variance,
                          r$settings$target),
       height = dose_toxicity_height(r$pathway)
     )
