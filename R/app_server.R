@@ -89,7 +89,7 @@ summary_boxes <- function(result) {
       showcase = if (nrow(later)) {
         bsicons::bs_icon(
           decision_icons[[later$decision[1]]],
-          style = paste0("color:", dtp_colours$decision[[later$decision[1]]])
+          color = dtp_colours$decision[[later$decision[1]]]
         )
       } else {
         bsicons::bs_icon("calendar-check")

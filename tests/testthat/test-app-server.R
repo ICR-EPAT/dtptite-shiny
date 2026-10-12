@@ -121,7 +121,9 @@ test_that("the next-change icon shows the next decision in its colour", {
     start(session)
     html <- as.character(output$summary_boxes$html)
     # Next change in the example: escalate.
-    expect_match(html, paste0("color:", dtp_colours$decision[["E"]]),
+    # A real CSS colour declaration, not nested in another property.
+    expect_match(html, paste0(";color:", dtp_colours$decision[["E"]], ";"),
                  fixed = TRUE)
+    expect_no_match(html, "style:color")
   })
 })
