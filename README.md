@@ -14,7 +14,8 @@ design grammar. This app replaces the legacy DTP-TITE-CRM app (ICR, 2021).
 ```r
 # install.packages("remotes")
 remotes::install_github("ICR-EPAT/dtptite")
-install.packages(c("shiny", "bslib", "rhandsontable", "readxl", "ggplot2"))
+install.packages(c("shiny", "bslib", "rhandsontable", "readxl", "ggplot2",
+                   "ggiraph"))
 shiny::runApp()
 ```
 
