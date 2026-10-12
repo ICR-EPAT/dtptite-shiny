@@ -121,6 +121,43 @@ test_that("calibrated skeleton uses the fitted model and the dose count", {
   expect_error(calibrate_skeleton(0.25, 0.05, prior_mtd = 7, num_doses = 6))
 })
 
+test_that("calibration rejects intervals outside (0, 1)", {
+  # dfcrm::getprior() returns NaN or values >= 1 for these.
+  expect_error(calibrate_skeleton(target = 0.8, halfwidth = 0.3,
+                                  prior_mtd = 3, num_doses = 5),
+               "within \\(0, 1\\)")
+  expect_error(calibrate_skeleton(target = 0.8, halfwidth = 0.2,
+                                  prior_mtd = 3, num_doses = 5),
+               "within \\(0, 1\\)")
+  expect_error(calibrate_skeleton(target = 0.1, halfwidth = 0.1,
+                                  prior_mtd = 3, num_doses = 5),
+               "within \\(0, 1\\)")
+})
+
+test_that("calibration rejects skeletons getprior cannot make valid", {
+  # The interval is valid, but the logistic calibration gives NaN and the
+  # empiric one underflows the lowest dose to exactly 0.
+  expect_error(calibrate_skeleton(target = 0.8, halfwidth = 0.19,
+                                  prior_mtd = 3, num_doses = 5,
+                                  model = "logistic"),
+               "increasing DLT probabilities")
+  expect_error(calibrate_skeleton(target = 0.05, halfwidth = 0.04,
+                                  prior_mtd = 10, num_doses = 10),
+               "increasing DLT probabilities")
+})
+
+test_that("calibration accepts the app's slider extremes", {
+  for (target in c(0.05, 0.5)) {
+    for (halfwidth in c(0.03, min(0.13, target - 0.01))) {
+      for (model in c("empiric", "logistic")) {
+        skeleton <- calibrate_skeleton(target, halfwidth, prior_mtd = 1,
+                                       num_doses = 10, model = model)
+        expect_false(is.unsorted(skeleton, strictly = TRUE))
+      }
+    }
+  }
+})
+
 test_that("beta prior from mean and effective sample size", {
   expect_equal(beta_prior_from_mean(0.1, 1), list(a = 0.1, b = 0.9))
   expect_equal(beta_prior_from_mean(0.25, 10), list(a = 2.5, b = 7.5))
