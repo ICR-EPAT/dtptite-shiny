@@ -42,10 +42,27 @@ test_that("stopping prior is the default or from mean and sample size", {
 })
 
 test_that("typed design settings are checked", {
-  expect_length(validate_settings(30, 0.65, 50, 2), 0)
-  problems <- validate_settings(obswin = 0, variance = -1,
-                                day_of_assessment = 2.5, stop_n_min = NA)
-  expect_length(problems, 4)
+  expect_length(validate_settings(30, 50, 2), 0)
+  problems <- validate_settings(obswin = 0, day_of_assessment = 2.5,
+                                stop_n_min = NA)
+  expect_length(problems, 3)
   expect_match(problems[1], "observation window")
-  expect_match(problems[4], "Minimum patients")
+  expect_match(problems[3], "Minimum patients")
+})
+
+test_that("prior variance is least informative unless set", {
+  skeleton <- calibrate_skeleton(0.25, 0.05, prior_mtd = 1, num_doses = 5)
+  li <- variance_from_settings("least_informative", 99, skeleton, 0.25)
+  expect_equal(li$variance, least_informative_variance(skeleton, 0.25))
+  expect_null(li$problem)
+  expect_equal(variance_from_settings("own", 0.65, skeleton, 0.25)$variance,
+               0.65)
+  expect_match(variance_from_settings("own", -1, skeleton, 0.25)$problem,
+               "positive")
+  expect_match(variance_from_settings("own", NA, skeleton, 0.25)$problem,
+               "positive")
+  # Without a skeleton the skeleton's own problem is reported instead.
+  none <- variance_from_settings("least_informative", NA, NULL, 0.25)
+  expect_null(none$variance)
+  expect_null(none$problem)
 })

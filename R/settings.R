@@ -65,21 +65,46 @@ stopping_prior <- function(use_default, mean, ess) {
   c(beta_prior_from_mean(mean, ess), list(problem = NULL))
 }
 
+#' Prior variance from the settings
+#'
+#' @param variance_type `"least_informative"` (calculated from the
+#'   skeleton) or `"own"`.
+#' @param variance The user's variance, used for `"own"`.
+#' @param skeleton,target See [least_informative_variance()]; `skeleton`
+#'   may be `NULL` when it could not be made.
+#' @return A list with `variance` (or `NULL`) and `problem` (a message, or
+#'   `NULL`).
+variance_from_settings <- function(variance_type, variance, skeleton,
+                                   target) {
+  if (identical(variance_type, "own")) {
+    ok <- is.numeric(variance) && length(variance) == 1 &&
+      !is.na(variance) && variance > 0
+    return(list(variance = if (ok) variance,
+                problem = if (!ok) "Prior variance must be positive."))
+  }
+  if (is.null(skeleton)) {
+    return(list(variance = NULL, problem = NULL))
+  }
+  tryCatch(
+    list(variance = least_informative_variance(skeleton, target),
+         problem = NULL),
+    warning = function(w) list(variance = NULL,
+                               problem = conditionMessage(w))
+  )
+}
+
 #' Check the design settings that are typed in
 #'
 #' @param obswin DLT observation window, in days.
-#' @param variance Prior variance of the model parameter.
 #' @param day_of_assessment Study day of the analysis.
 #' @param stop_n_min Patients needed at the lowest dose before stopping.
 #' @return A character vector of problems, empty when all are valid.
-validate_settings <- function(obswin, variance, day_of_assessment,
-                              stop_n_min) {
+validate_settings <- function(obswin, day_of_assessment, stop_n_min) {
   whole <- function(x, min) {
     is.numeric(x) && length(x) == 1 && !is.na(x) && x >= min && x == round(x)
   }
   c(
     if (!whole(obswin, 1)) "DLT observation window must be a whole number of days, 1 or more.",
-    if (!is.numeric(variance) || is.na(variance) || variance <= 0) "Prior variance must be positive.",
     if (!whole(day_of_assessment, 1)) "Day of assessment must be a whole number, 1 or more.",
     if (!whole(stop_n_min, 0)) "Minimum patients for stopping must be a whole number, 0 or more."
   )
