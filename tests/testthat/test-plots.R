@@ -117,8 +117,25 @@ test_that("bands follow the credible intervals; only recommended is filled", {
 
   prior_points <- built$data[[5]]
   expect_true(all(prior_points$fill == "white"))
-  post_points <- built$data[[length(plot$layers)]]
-  expect_equal(post_points$fill != "white", post$recommended)
+  n <- length(plot$layers)
+  expect_true(all(built$data[[n - 1]]$fill == "white"))
+  filled <- built$data[[n]]
+  expect_equal(nrow(filled), sum(post$recommended))
+  role_colour <- c(current = dtp_colours$accent, change = "#CC79A7",
+                   complete = "#56B4E9")
+  expect_equal(as.character(filled$fill),
+               unname(role_colour[post$role[post$recommended]]))
+})
+
+test_that("dose-toxicity legend uses symbols, not a caption", {
+  plot <- plot_dose_toxicity(pathway, skeleton, 1.34, target)
+  expect_null(plot$labels$caption)
+  lines <- ggplot2::get_guide_data(plot, "linetype")
+  expect_equal(lines$.label, c("Prior, 90% CrI", "Posterior mean, 90% CrI",
+                               "Target 0.25"))
+  expect_equal(lines$linetype, c("22", "solid", "dotted"))
+  expect_equal(ggplot2::get_guide_data(plot, "shape")$.label,
+               "Recommended dose")
 })
 
 test_that("an MTD estimate the rules do not allow is named in its tooltip", {
@@ -152,9 +169,9 @@ test_that("stopped fits are plotted without a recommended dose", {
   expect_false(any(d$recommended))
   expect_match(levels(d$panel)[1], "Stop: lowest dose too toxic")
   expect_false(anyNA(d$prob_tox))
-  expect_no_error(
-    ggplot2::ggplot_build(plot_dose_toxicity(p, skeleton, 1.34, target))
-  )
+  stopped <- plot_dose_toxicity(p, skeleton, 1.34, target)
+  expect_no_warning(ggplot2::ggplot_build(stopped))
+  expect_null(ggplot2::get_guide_data(stopped, "shape"))
   band <- layer_data_of(plot_timeline(x, 50, 56, 5, p), "GeomRect")
   expect_equal(band$fill, unname(dtp_colours$decision["Stop"]))
 })
