@@ -65,6 +65,14 @@ test_that("escalation reached only on the last projected day is reported", {
                    t_max = 49)
   expect_equal(sum(p$days$decision == "E"), 1)
   expect_equal(first_day_of(p, "E"), 149)
+
+  # Capping the projected days does not cap the complete-follow-up fit:
+  # completion needs ceiling(0.95 * 56) = 54 days, past t_max = 49.
+  expect_equal(max(p$days$wait), 49)
+  expect_equal(escalation::weight(p$fits$complete), rep(1, 8))
+  uncapped <- dtp_pathway(tite_crm, x, day_of_assessment = 100, obswin = 56)
+  expect_equal(escalation::mean_prob_tox(p$fits$complete),
+               escalation::mean_prob_tox(uncapped$fits$complete))
 })
 
 test_that("stopping for toxicity holds on every projected day", {
