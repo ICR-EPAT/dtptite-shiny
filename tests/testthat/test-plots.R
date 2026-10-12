@@ -122,7 +122,7 @@ test_that("bands follow the credible intervals; only recommended is filled", {
   filled <- built$data[[n]]
   expect_equal(nrow(filled), sum(post$recommended))
   role_colour <- c(current = dtp_colours$accent, change = "#CC79A7",
-                   complete = "#56B4E9")
+                   complete = "#1F7A8C")
   expect_equal(as.character(filled$fill),
                unname(role_colour[post$role[post$recommended]]))
 })
@@ -186,4 +186,61 @@ test_that("plots render as ggiraph widgets with tooltips", {
   w2 <- as_girafe(plot_dose_toxicity(pathway, skeleton, 1.34, target),
                   height = dose_toxicity_height(pathway))
   expect_match(w2$x$html, "Recommended dose")
+})
+
+test_that("dose colours read as text on white for any number of doses", {
+  # Review of #7: the lightest dose colour was 2.9:1.
+  for (k in 2:10) {
+    ratios <- vapply(dose_colours(k), contrast_ratio, numeric(1),
+                     b = "#FFFFFF")
+    expect_true(all(ratios >= 4.5), info = paste(k, "doses"))
+  }
+})
+
+test_that("pathway labels contrast with their fills", {
+  # Review of #7: white text failed on Stay, Escalate and Stop.
+  fills <- dtp_colours$decision
+  expect_equal(text_on(fills), c("#FFFFFF", "#000000", "#000000", "#000000"))
+  ratios <- mapply(contrast_ratio, fills, text_on(fills))
+  expect_true(all(ratios >= 4.5))
+})
+
+test_that("one-day runs keep a visible dose label", {
+  # Review of #7: runs shorter than two days were labelled only on hover.
+  # Dose 1 until day 103, dose 2 on day 104 (see test-messages.R).
+  x <- data.frame(dose = c(1, 1, 2, 2, 2, 2, 3),
+                  tox = c(0, 0, 0, 1, 0, 0, 1),
+                  weight = c(0.2, 0.8, 0.2, 1, 0.2, 1, 1),
+                  monitored = c(TRUE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE))
+  tite_crm <- escalation::get_dfcrm_tite(skeleton = skeleton,
+                                         target = target)
+  p <- dtp_pathway(tite_crm, x, day_of_assessment = 100, obswin = 5)
+  expect_equal(p$runs$to_day - p$runs$from_day, c(3, 0))
+
+  plot <- plot_timeline(trial, 50, 30, num_doses = 5, pathway = p)
+  built <- ggplot2::ggplot_build(plot)
+  labels <- unlist(lapply(built$data, function(d) d$label))
+  expect_true(all(c("1", "2") %in% labels))
+})
+
+test_that("change-day labels are ink, not the decision colour", {
+  plot <- plot_timeline(trial, 50, 30, num_doses = 5, pathway = pathway)
+  built <- ggplot2::ggplot_build(plot)
+  day_labels <- Filter(function(d) any(grepl("^Day ", d$label)), built$data)
+  expect_equal(unique(day_labels[[1]]$colour), dtp_colours$ink)
+})
+
+test_that("posterior colours have 3:1 contrast on white", {
+  # Review of #7: the complete-follow-up colour was 2.3:1.
+  for (colour in c(dtp_colours$accent, "#CC79A7", "#1F7A8C")) {
+    expect_gte(contrast_ratio(colour, "#FFFFFF"), 3)
+  }
+})
+
+test_that("dose-toxicity data rejects an invalid interval level", {
+  # Review of #7: model_table() checked level, the plot data did not.
+  for (bad in list(0, 1, 1.5, NA_real_, c(0.5, 0.9), "0.9")) {
+    expect_error(dose_toxicity_data(pathway, skeleton, 1.34, target,
+                                    level = bad))
+  }
 })
