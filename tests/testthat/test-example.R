@@ -46,5 +46,5 @@ test_that("the example shows a pathway that changes after day 50", {
   p <- dtp_pathway(design$parent, data, 50, 30)
   expect_equal(p$runs$decision, c("S", "E"))
   expect_equal(p$runs$dose, c(2L, 3L))
-  expect_equal(first_day_of(p, "E"), 56)
+  expect_equal(first_day_of(p, "E"), 63)
 })

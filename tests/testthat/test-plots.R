@@ -25,23 +25,23 @@ test_that("timeline ends follow-up on the last day observed", {
   # Entry day counts as day 1 of follow-up.
   expect_equal(d$last_day[d$status == "Completed"],
                d$entry_day[d$status == "Completed"] + 29)
-  expect_equal(d$last_day[d$status == "DLT"], 21 + 11 - 1)
-  expect_equal(d$last_day[d$status == "Withdrawn"], 17 + 16 - 1)
-  expect_equal(d$last_day[d$status == "Ongoing"], c(50, 50))
-  expect_equal(d$window_end[d$status == "Ongoing"], c(39, 41) + 29)
-  expect_match(d$tooltip[6], "DLT: 11 of 30 days \\(weight 1.00\\)")
+  expect_equal(d$last_day[d$status == "DLT"], 14 + 20 - 1)
+  expect_equal(d$last_day[d$status == "Withdrawn"], 12 + 13 - 1)
+  expect_equal(d$last_day[d$status == "Ongoing"], c(50, 50, 50))
+  expect_equal(d$window_end[d$status == "Ongoing"], c(36, 37, 42) + 29)
+  expect_match(d$tooltip[6], "DLT: 20 of 30 days \\(weight 1.00\\)")
 })
 
 test_that("study timeline has one row per patient", {
   p <- plot_timeline(trial, 50, 30, num_doses = 5)
   y <- ggplot2::ggplot_build(p)$layout$panel_params[[1]]$y
-  expect_equal(y$get_labels(), paste0("P", 1:8))
+  expect_equal(y$get_labels(), paste0("P", 1:9))
 })
 
 test_that("pathway adds a Next row coloured by decision", {
   p <- plot_timeline(trial, 50, 30, num_doses = 5, pathway = pathway)
   y <- ggplot2::ggplot_build(p)$layout$panel_params[[1]]$y
-  expect_equal(y$get_labels(), c(paste0("P", 1:8), "Next"))
+  expect_equal(y$get_labels(), c(paste0("P", 1:9), "Next"))
 
   band <- layer_data_of(p, "GeomRect")
   expect_equal(nrow(band), nrow(pathway$runs))
@@ -55,11 +55,11 @@ test_that("dose colours are fixed by level, whichever doses were given", {
   seg <- layer_data_of(p, "GeomSegment")
   expect_equal(seg$colour, dose_colours(5)[trial$dose])
 
-  only_dose_3 <- trial[trial$dose == 3, ]
-  only_dose_3$patient <- seq_len(nrow(only_dose_3))
-  seg3 <- layer_data_of(plot_timeline(only_dose_3, 50, 30, num_doses = 5),
+  only_dose_2 <- trial[trial$dose == 2, ]
+  only_dose_2$patient <- seq_len(nrow(only_dose_2))
+  seg2 <- layer_data_of(plot_timeline(only_dose_2, 50, 30, num_doses = 5),
                         "GeomSegment")
-  expect_equal(unique(seg3$colour), dose_colours(5)[3])
+  expect_equal(unique(seg2$colour), dose_colours(5)[2])
 })
 
 test_that("projected follow-up is drawn only for Ongoing patients", {
@@ -67,7 +67,7 @@ test_that("projected follow-up is drawn only for Ongoing patients", {
   dashed <- ggplot2::ggplot_build(p)$data[[2]]
   # The y scale is reversed so patient 1 is on top.
   expect_equal(-dashed$y, trial$patient[trial$status == "Ongoing"])
-  expect_equal(dashed$xend, c(39, 41) + 29)
+  expect_equal(dashed$xend, c(36, 37, 42) + 29)
 })
 
 test_that("dose-toxicity data has one panel per key day, with the prior", {
@@ -234,7 +234,7 @@ test_that("key days are named in the legend, not on the plot", {
   plot <- plot_timeline(trial, 50, 30, num_doses = 5, pathway = pathway)
   keys <- ggplot2::get_guide_data(plot, "linetype")
   expect_equal(keys$.label, c("Assessment, day 50",
-                              "Recommendation changes, day 56"))
+                              "Recommendation changes, day 63"))
   built <- ggplot2::ggplot_build(plot)
   labels <- unlist(lapply(built$data, function(d) d$label))
   expect_false(any(grepl("day", labels, ignore.case = TRUE)))

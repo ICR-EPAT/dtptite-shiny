@@ -68,8 +68,8 @@ test_that("adding a patient and invalid data are shown before fitting", {
   shiny::testServer(app_server, {
     start(session)
     session$setInputs(add_patient = 1)
-    expect_equal(nrow(trial()), 9)
-    expect_equal(trial()$entry_day[9], 50)
+    expect_equal(nrow(trial()), 10)
+    expect_equal(trial()$entry_day[10], 50)
     expect_null(output$data_problems)
 
     session$setInputs(day_of_assessment = 40)
@@ -108,8 +108,8 @@ test_that("the next-change tile lists every change after day 50", {
   shiny::testServer(app_server, {
     start(session)
     html <- as.character(output$summary_boxes$html)
-    # The example stays at dose 2, then escalates from day 56.
-    expect_match(html, "Day 56")
+    # The example stays at dose 2, then escalates from day 63.
+    expect_match(html, "Day 63")
     expect_match(html, "Escalate to dose 3")
     # The separate recommendation card is gone.
     expect_error(output$recommendation, "hasn't been defined")
