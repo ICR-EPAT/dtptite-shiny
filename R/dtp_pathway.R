@@ -28,8 +28,9 @@
 #'     \item{current_dose, recommended_dose}{Last dose given; recommendation
 #'       at T_A.}
 #'     \item{fits}{Fitted selectors: `current` (T_A), `complete` (all
-#'       monitored patients fully followed up) and `changes` (one per run,
-#'       at its first day).}
+#'       monitored patients fully followed up, even when `t_max` stops the
+#'       projected days earlier) and `changes` (one per run, at its first
+#'       day).}
 #'   }
 dtp_pathway <- function(design, data, day_of_assessment, obswin,
                         t_max = NULL) {
@@ -47,12 +48,14 @@ dtp_pathway <- function(design, data, day_of_assessment, obswin,
   current_dose <- utils::tail(data$dose, 1)
 
   pending <- data$monitored & data$tox == 0 & data$weight < 1
-  horizon <- if (any(pending)) {
+  # Days until every monitored patient completes follow-up; t_max may cap
+  # the projected days, but not the complete-follow-up fit.
+  complete_wait <- if (any(pending)) {
     ceiling(max(1 - data$weight[pending]) * obswin)
   } else {
     0
   }
-  if (!is.null(t_max)) horizon <- min(horizon, t_max)
+  horizon <- if (is.null(t_max)) complete_wait else min(complete_wait, t_max)
 
   fit_at <- function(wait) {
     projected <- outcomes
@@ -89,7 +92,12 @@ dtp_pathway <- function(design, data, day_of_assessment, obswin,
       current_dose = current_dose,
       recommended_dose = doses[1],
       day_of_assessment = day_of_assessment,
-      fits = list(current = fits[[1]], complete = fits[[length(fits)]],
+      fits = list(current = fits[[1]],
+                  complete = if (horizon < complete_wait) {
+                    fit_at(complete_wait)
+                  } else {
+                    fits[[length(fits)]]
+                  },
                   changes = fits[starts])
     ),
     class = "dtp_pathway"
