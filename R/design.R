@@ -32,9 +32,10 @@ beta_prior_from_mean <- function(mean, ess) {
 
 #' Build the DTP-TITE-CRM design
 #'
-#' The chain is, in order: TITE-CRM, dose-skipping restrictions, global
-#' coherence, safety stopping at the lowest dose, then DTP. This is the
-#' order the legacy engine (dtpcrm::applied_titecrm) applied them in.
+#' The chain is, in order: TITE-CRM (empiric model), safety stopping at the
+#' lowest dose, dose-skipping restrictions, global coherence, then DTP. This
+#' follows the order used in dtptite's own tests
+#' (tests/testthat/test-depth-valve.R).
 #'
 #' @param skeleton Prior DLT probabilities, one per dose.
 #' @param target Target DLT rate.
@@ -62,7 +63,15 @@ build_design <- function(skeleton, target, obswin, variance = 1.34,
             variance > 0)
 
   parent <- escalation::get_dfcrm_tite(skeleton = skeleton, target = target,
+                                       model = "empiric",
                                        scale = sqrt(variance))
+  if (!is.null(stop_confidence)) {
+    parent <- parent |>
+      dtptite::stop_for_beta_binomial_toxicity(
+        dose = 1, tox_threshold = target, confidence = stop_confidence,
+        a = stop_a, b = stop_b, n_min = stop_n_min
+      )
+  }
   if (no_skip_esc || no_skip_deesc) {
     parent <- parent |>
       escalation::dont_skip_doses(when_escalating = no_skip_esc,
@@ -70,13 +79,6 @@ build_design <- function(skeleton, target, obswin, variance = 1.34,
   }
   if (global_coherence) {
     parent <- parent |> enforce_global_coherence()
-  }
-  if (!is.null(stop_confidence)) {
-    parent <- parent |>
-      dtptite::stop_for_beta_binomial_toxicity(
-        dose = 1, tox_threshold = target, confidence = stop_confidence,
-        a = stop_a, b = stop_b, n_min = stop_n_min
-      )
   }
 
   list(
