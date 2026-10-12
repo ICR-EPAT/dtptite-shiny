@@ -15,8 +15,9 @@
 #'   row's dose is the current dose.
 #' @param day_of_assessment Study day of the analysis (T_A).
 #' @param obswin DLT observation window, in days.
-#' @param t_max Longest wait to project, in days. Defaults to the time
-#'   until every monitored patient completes follow-up.
+#' @param t_max Longest wait to project, in days (`>= 0`, `Inf` allowed).
+#'   Defaults to the time until every monitored patient completes
+#'   follow-up.
 #' @return A list of class `dtp_pathway` with:
 #'   \describe{
 #'     \item{days}{One row per projected day: `day`, `wait` (days after
@@ -34,6 +35,13 @@ dtp_pathway <- function(design, data, day_of_assessment, obswin,
                         t_max = NULL) {
   stopifnot(nrow(data) > 0,
             all(c("dose", "tox", "weight", "monitored") %in% names(data)))
+  # Same checks as dtptite::apply_dtp().
+  stopifnot(is.numeric(obswin), length(obswin) == 1, is.finite(obswin),
+            obswin > 0)
+  if (!is.null(t_max)) {
+    stopifnot(is.numeric(t_max), length(t_max) == 1, !is.na(t_max),
+              t_max >= 0)
+  }
   outcomes <- data.frame(dose = data$dose, tox = data$tox,
                          weight = data$weight, cohort = seq_len(nrow(data)))
   current_dose <- utils::tail(data$dose, 1)

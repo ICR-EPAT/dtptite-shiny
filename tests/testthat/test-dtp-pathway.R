@@ -88,6 +88,26 @@ test_that("escalate-now and complete-data cases give a single run", {
   expect_equal(nrow(p$days), 1)
 })
 
+test_that("invalid observation window or t_max is rejected", {
+  expect_error(dtp_pathway(tite_crm, wait_case, 100, obswin = 0))
+  expect_error(dtp_pathway(tite_crm, wait_case, 100, obswin = -56))
+  expect_error(dtp_pathway(tite_crm, wait_case, 100, obswin = Inf))
+  expect_error(dtp_pathway(tite_crm, wait_case, 100, obswin = c(28, 56)))
+  # A negative t_max would otherwise project backwards from T_A.
+  expect_error(dtp_pathway(tite_crm, wait_case, 100, obswin = 56,
+                           t_max = -3))
+  expect_error(dtp_pathway(tite_crm, wait_case, 100, obswin = 56,
+                           t_max = NA_real_))
+})
+
+test_that("t_max of 0 or Inf is accepted", {
+  p0 <- dtp_pathway(tite_crm, wait_case, 100, obswin = 56, t_max = 0)
+  expect_equal(nrow(p0$days), 1)
+  p_inf <- dtp_pathway(tite_crm, wait_case, 100, obswin = 56, t_max = Inf)
+  expect_equal(p_inf$runs,
+               dtp_pathway(tite_crm, wait_case, 100, obswin = 56)$runs)
+})
+
 # Run segmentation for a D -> S -> E pathway, using a stub design whose
 # recommendation is driven by the total weight.
 stub_factory <- structure(list(), class = c("stub_factory", "selector_factory"))
