@@ -28,6 +28,7 @@ test_that("projection ends when every monitored patient has completed", {
   p <- dtp_pathway(tite_crm, wait_case, day_of_assessment = 100, obswin = 56)
   # 70% of 56 days remain: 39.2, rounded up to 40.
   expect_equal(max(p$days$wait), 40)
+  expect_equal(p$complete_day, 140)
   expect_equal(escalation::weight(p$fits$complete), c(1, 1, 1, 1))
   expect_equal(p$days$day[1], 100)
 })
@@ -41,6 +42,7 @@ test_that("withdrawn patients keep their partial weight", {
   # have projected this patient forward and suggested waiting.
   expect_equal(p$runs$decision, "D")
   expect_equal(nrow(p$days), 1)
+  expect_equal(p$complete_day, 100)
 })
 
 test_that("S then E pathway reports the escalation day", {
@@ -69,6 +71,7 @@ test_that("escalation reached only on the last projected day is reported", {
   # Capping the projected days does not cap the complete-follow-up fit:
   # completion needs ceiling(0.95 * 56) = 54 days, past t_max = 49.
   expect_equal(max(p$days$wait), 49)
+  expect_equal(p$complete_day, 154)
   expect_equal(escalation::weight(p$fits$complete), rep(1, 8))
   uncapped <- dtp_pathway(tite_crm, x, day_of_assessment = 100, obswin = 56)
   expect_equal(escalation::mean_prob_tox(p$fits$complete),

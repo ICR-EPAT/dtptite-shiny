@@ -27,6 +27,8 @@
 #'       `from_day`, `to_day`, `dose`, `decision`.}
 #'     \item{current_dose, recommended_dose}{Last dose given; recommendation
 #'       at T_A.}
+#'     \item{complete_day}{Day every monitored patient completes follow-up
+#'       (T_A when none is pending), even when `t_max` stops `days` earlier.}
 #'     \item{fits}{Fitted selectors: `current` (T_A), `complete` (all
 #'       monitored patients fully followed up, even when `t_max` stops the
 #'       projected days earlier) and `changes` (one per run, at its first
@@ -92,6 +94,7 @@ dtp_pathway <- function(design, data, day_of_assessment, obswin,
       current_dose = current_dose,
       recommended_dose = doses[1],
       day_of_assessment = day_of_assessment,
+      complete_day = day_of_assessment + complete_wait,
       fits = list(current = fits[[1]],
                   complete = if (horizon < complete_wait) {
                     fit_at(complete_wait)
