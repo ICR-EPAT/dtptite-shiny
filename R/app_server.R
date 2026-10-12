@@ -132,6 +132,12 @@ app_server <- function(input, output, session) {
     stats::setNames(lapply(ids, function(id) input[[id]]), ids)
   })
 
+  # The half-width defaults to a quarter of the target.
+  shiny::observeEvent(input$target, ignoreInit = TRUE, {
+    shiny::updateNumericInput(session, "halfwidth",
+                              value = input$target / 4)
+  })
+
   # The MTD guess cannot exceed the number of doses (legacy kept the old
   # maximum until the prior type was switched).
   shiny::observeEvent(input$num_doses, {
@@ -207,7 +213,7 @@ app_server <- function(input, output, session) {
       htmltools::div(class = "form-text text-danger mb-3", sk$problem)
     } else {
       htmltools::div(class = "form-text form-text-skeleton mb-3",
-                     "Skeleton: ", paste(sprintf("%.3f", sk$skeleton),
+                     "Skeleton: ", paste(format(sk$skeleton, nsmall = 2),
                                          collapse = ", "))
     }
   })

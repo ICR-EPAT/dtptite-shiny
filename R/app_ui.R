@@ -77,11 +77,11 @@ prior_panel <- function() {
                   "The dose whose prior DLT probability equals the target."),
         min = 1, max = 5, value = 1, step = 1, ticks = FALSE
       ),
-      shiny::sliderInput(
+      shiny::numericInput(
         "halfwidth",
         with_help("Half-width of the indifference interval",
-                  "Doses with DLT probability within target ± half-width are considered acceptable (Lee and Cheung, 2009)."),
-        min = 0.03, max = 0.13, value = 0.05, step = 0.01, ticks = FALSE
+                  "Doses with DLT probability within target \u00b1 half-width are considered acceptable (Lee and Cheung, 2009). Defaults to a quarter of the target, and resets to it when the target changes."),
+        value = 0.0625, min = 0.005, max = 0.25, step = 0.005
       )
     ),
     shiny::conditionalPanel(

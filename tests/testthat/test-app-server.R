@@ -1,7 +1,7 @@
 # The UI's default inputs.
 defaults <- list(
   num_doses = 5, target = 0.25, obswin = 30, prior_type = "calibrate",
-  prior_mtd = 1, halfwidth = 0.05,
+  prior_mtd = 1, halfwidth = 0.0625,
   skeleton_text = "0.03, 0.07, 0.20, 0.30, 0.40",
   variance_type = "least_informative", variance = 1, no_skip_esc = TRUE,
   no_skip_deesc = TRUE, global_coherence = TRUE, stop_on = TRUE,
@@ -17,7 +17,8 @@ test_that("the example is fitted on start-up with defaults", {
     start(session)
     r <- result()
     expect_length(r$problems, 0)
-    skeleton <- calibrate_skeleton(0.25, 0.05, prior_mtd = 1, num_doses = 5)
+    skeleton <- round(calibrate_skeleton(0.25, 0.0625, prior_mtd = 1,
+                                         num_doses = 5), 2)
     expect_equal(r$skeleton, skeleton)
     # Least informative variance by default.
     expect_equal(r$variance, least_informative_variance(skeleton, 0.25))
