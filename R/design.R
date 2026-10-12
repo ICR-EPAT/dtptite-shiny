@@ -60,27 +60,36 @@ prior_mtd_distribution <- function(skeleton, target, variance) {
 #'
 #' @param skeleton Prior DLT probabilities, one per dose.
 #' @param target Target DLT rate.
-#' @param sd_max Largest prior standard deviation searched; a warning is
-#'   given when the optimum is at this edge.
+#' @param sd_min,sd_max Range of prior standard deviations searched; a
+#'   warning is given when the optimum is at either limit, as then the
+#'   least informative variance lies outside the range.
 #' @return The prior variance.
 #' @references Lee SM, Cheung YK (2011). Calibration of prior variance in
 #'   the Bayesian continual reassessment method. Statistics in Medicine
 #'   30(17):2081-2089.
-least_informative_variance <- function(skeleton, target, sd_max = 10) {
+least_informative_variance <- function(skeleton, target, sd_min = 0.001,
+                                       sd_max = 10) {
+  stopifnot(is.numeric(sd_min), is.numeric(sd_max), length(sd_min) == 1,
+            length(sd_max) == 1, sd_min > 0, sd_max > sd_min)
   k <- length(skeleton)
   divergence <- function(sd) {
     mu <- prior_mtd_distribution(skeleton, target, sd^2)
     sum(ifelse(mu > 0, mu * log(mu * k), 0))
   }
   # A coarse grid first, so optimize() starts in the right basin.
-  grid <- exp(seq(log(0.01), log(sd_max), length.out = 200))
+  grid <- exp(seq(log(sd_min), log(sd_max), length.out = 250))
   best <- which.min(vapply(grid, divergence, numeric(1)))
   lower <- grid[max(best - 1, 1)]
   upper <- grid[min(best + 1, length(grid))]
-  sd <- stats::optimize(divergence, c(lower, upper), tol = 1e-8)$minimum
-  if (best == length(grid)) {
-    warning("The least informative prior SD is at the search limit sd_max = ",
-            sd_max, "; increase sd_max.", call. = FALSE)
+  sd <- stats::optimize(divergence, c(lower, upper), tol = 1e-10)$minimum
+  # Judge the refined optimum, not the grid point: it is at a limit only
+  # if optimize() ran into it.
+  at_limit <- function(limit) abs(log(sd / limit)) < 1e-4
+  if (at_limit(sd_min) || at_limit(sd_max)) {
+    warning(sprintf(
+      "The least informative prior SD is at the search limit (%g); it lies outside [%g, %g].",
+      if (at_limit(sd_min)) sd_min else sd_max, sd_min, sd_max
+    ), call. = FALSE)
   }
   sd^2
 }
