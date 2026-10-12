@@ -79,3 +79,12 @@ test_that("adding a patient and invalid data are shown before fitting", {
                  all = FALSE)
   })
 })
+
+test_that("the recommendation tile's text contrasts with its colour", {
+  shiny::testServer(app_server, {
+    start(session)
+    html <- as.character(output$summary_boxes$html)
+    colour <- dtp_colours$decision[[recommendation_text(result()$pathway)$decision]]
+    expect_match(html, paste0("color:", text_on(colour)), fixed = TRUE)
+  })
+})

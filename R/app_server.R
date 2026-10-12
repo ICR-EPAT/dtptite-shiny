@@ -74,9 +74,7 @@ summary_boxes <- function(result) {
       value = if (now == "Stop") "Stop the trial" else
         sprintf("Dose %d", first$dose),
       showcase = bsicons::bs_icon(decision_icons[[now]]),
-      theme = bslib::value_box_theme(
-        bg = colour, fg = if (now == "S") dtp_colours$ink else "#FFFFFF"
-      ),
+      theme = bslib::value_box_theme(bg = colour, fg = text_on(colour)),
       htmltools::p(if (now == "Stop") "The lowest dose is too toxic." else
         paste0(toupper(substring(decision_labels[[now]], 1, 1)),
                substring(tolower(decision_labels[[now]]), 2),
