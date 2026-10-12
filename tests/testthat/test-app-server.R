@@ -24,7 +24,7 @@ test_that("the example is fitted on start-up with defaults", {
     expect_equal(r$variance, least_informative_variance(skeleton, 0.25))
     expect_s3_class(r$pathway, "dtp_pathway")
     expect_match(as.character(output$summary_boxes$html),
-                 "Day 50 recommendation")
+                 "Day 50<")
   })
 })
 
@@ -110,7 +110,7 @@ test_that("the next-change tile lists every change after day 50", {
     html <- as.character(output$summary_boxes$html)
     # The example stays at dose 2, then escalates from day 56.
     expect_match(html, "Day 56")
-    expect_match(html, "Escalate to dose level 3")
+    expect_match(html, "Escalate to dose 3")
     # The separate recommendation card is gone.
     expect_error(output$recommendation, "hasn't been defined")
   })

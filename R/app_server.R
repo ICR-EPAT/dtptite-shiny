@@ -67,10 +67,13 @@ summary_boxes <- function(result) {
   pending <- sum(result$data$monitored &
                    result$data$weight < 1)
 
+  # A slim icon column leaves room for the text in narrow tiles.
+  tile_layout <- bslib::showcase_left_center(width = 0.25)
   bslib::layout_columns(
     fill = FALSE,
     bslib::value_box(
-      title = sprintf("Day %d recommendation", p$day_of_assessment),
+      showcase_layout = tile_layout,
+      title = sprintf("Day %d", p$day_of_assessment),
       value = if (now == "Stop") "Stop the trial" else
         sprintf("Dose %d", first$dose),
       showcase = bsicons::bs_icon(decision_icons[[now]]),
@@ -81,7 +84,8 @@ summary_boxes <- function(result) {
                sprintf(" (current dose %d)", p$current_dose)))
     ),
     bslib::value_box(
-      title = "Next change if no new DLTs",
+      showcase_layout = tile_layout,
+      title = "If no new DLTs",
       value = if (nrow(later)) sprintf("Day %d", later$from_day[1]) else
         "None",
       # Neutral tile; the icon shows the next decision in its colour, as on
@@ -98,7 +102,8 @@ summary_boxes <- function(result) {
       # Every later change, so nothing is lost when there are several.
       if (nrow(later)) {
         lapply(seq_len(nrow(later)), function(i) {
-          what <- describe_dose(later$dose[i], p$current_dose)
+          what <- sub("dose level", "dose",
+                      describe_dose(later$dose[i], p$current_dose))
           htmltools::p(class = "mb-0", if (i == 1) {
             paste0(toupper(substring(what, 1, 1)), substring(what, 2))
           } else {
@@ -106,16 +111,17 @@ summary_boxes <- function(result) {
           })
         })
       } else {
-        htmltools::p("The recommendation holds.")
+        htmltools::p("Recommendation holds")
       }
     ),
     bslib::value_box(
-      title = "DLT follow-up completes",
+      showcase_layout = tile_layout,
+      title = "Follow-up completes",
       value = if (p$complete_day == p$day_of_assessment) "Complete" else
         sprintf("Day %d", p$complete_day),
       showcase = bsicons::bs_icon("hourglass-split"),
       theme = "light",
-      htmltools::p(sprintf("%d patient%s still in follow-up", pending,
+      htmltools::p(sprintf("%d patient%s in follow-up", pending,
                            if (pending == 1) "" else "s"))
     )
   )

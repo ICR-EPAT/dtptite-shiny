@@ -14,7 +14,10 @@ app_theme <- function() {
       "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue",
       "Arial", "sans-serif"
     ),
-    "font-size-base" = "0.95rem"
+    "font-size-base" = "0.95rem",
+    # Keep value-box icons beside the text down to narrow tiles (bslib
+    # stacks them below 300px), so the three tiles stay short in one row.
+    "bslib-value-box-horizontal-break-point" = "150px"
   ) |>
     bslib::bs_add_rules("
       .table, .handsontable { font-variant-numeric: tabular-nums; }
