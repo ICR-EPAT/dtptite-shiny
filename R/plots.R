@@ -259,11 +259,26 @@ dose_toxicity_data <- function(pathway, skeleton, variance, target,
   out
 }
 
+# Legend glyph drawn only in the key whose linetype is `keep`, so each
+# layer appears once in the shared linetype legend (`...` sets fixed
+# aesthetics for the glyph, e.g. a neutral fill for per-panel colours).
+key_only_for <- function(keep, glyph, ...) {
+  fixed <- list(...)
+  function(data, params, size) {
+    if (!identical(data$linetype, keep)) {
+      return(grid::nullGrob())
+    }
+    data[names(fixed)] <- fixed
+    glyph(data, params, size)
+  }
+}
+
 #' Dose-toxicity plot: posterior and prior curves, one panel per key day
 #'
 #' Each panel shows the posterior and the prior (grey, dashed) with their
 #' credible intervals as shaded bands, and the target (dotted). Only the
 #' recommended dose is a filled point; it is also named in the header.
+#' Posterior colours differ by panel, so the legend draws them in ink.
 #'
 #' @param pathway A `dtp_pathway`.
 #' @param skeleton Prior DLT probabilities (the design's skeleton).
@@ -280,58 +295,90 @@ plot_dose_toxicity <- function(pathway, skeleton, variance, target,
   post <- d[d$role != "prior", , drop = FALSE]
   post$colour <- role_colour[post$role]
   post$id <- paste(post$panel, post$dose)
+  rec <- post[post$recommended, , drop = FALSE]
+
+  keys <- c(sprintf("Prior, %g%% CrI", 100 * level),
+            sprintf("Posterior mean, %g%% CrI", 100 * level),
+            sprintf("Target %g", target))
+  key_lines <- stats::setNames(c("22", "solid", "dotted"), keys)
+  prior_fill <- grDevices::adjustcolor(dtp_colours$muted, alpha.f = 0.12)
+  post_alpha <- 0.2
 
   ggplot2::ggplot(mapping = ggplot2::aes(dose, prob_tox)) +
     ggplot2::geom_ribbon(
-      data = prior, ggplot2::aes(ymin = lower, ymax = upper, group = panel),
-      fill = dtp_colours$muted, alpha = 0.12
+      data = prior,
+      ggplot2::aes(ymin = lower, ymax = upper, group = panel,
+                   linetype = keys[1]),
+      fill = prior_fill, colour = NA,
+      key_glyph = key_only_for("22", ggplot2::draw_key_rect)
     ) +
     ggplot2::geom_ribbon(
       data = post,
       ggplot2::aes(ymin = lower, ymax = upper, group = panel,
-                   fill = I(colour)),
-      alpha = 0.2
+                   fill = I(colour), linetype = keys[2]),
+      alpha = post_alpha, colour = NA,
+      key_glyph = key_only_for("solid", ggplot2::draw_key_rect,
+                               fill = dtp_colours$ink, alpha = post_alpha)
     ) +
-    ggplot2::geom_hline(yintercept = target, colour = dtp_colours$ink,
-                        linetype = "dotted", linewidth = 0.4) +
-    ggplot2::geom_line(data = prior, ggplot2::aes(group = panel),
-                       colour = dtp_colours$muted, linetype = "22",
-                       linewidth = 0.6) +
+    ggplot2::geom_hline(
+      data = data.frame(target = target),
+      ggplot2::aes(yintercept = target, linetype = keys[3]),
+      colour = dtp_colours$ink, linewidth = 0.4,
+      key_glyph = key_only_for("dotted", ggplot2::draw_key_path)
+    ) +
+    ggplot2::geom_line(
+      data = prior, ggplot2::aes(group = panel, linetype = keys[1]),
+      colour = dtp_colours$muted, linewidth = 0.6,
+      key_glyph = key_only_for("22", ggplot2::draw_key_path)
+    ) +
     ggiraph::geom_point_interactive(
       data = prior, ggplot2::aes(tooltip = tooltip),
       colour = dtp_colours$muted, fill = "white", shape = 21, size = 1.4,
       stroke = 0.8
     ) +
-    ggplot2::geom_line(data = post,
-                       ggplot2::aes(group = panel, colour = I(colour)),
-                       linewidth = 0.8) +
-    ggiraph::geom_point_interactive(
+    ggplot2::geom_line(
       data = post,
-      ggplot2::aes(colour = I(colour),
-                   fill = I(ifelse(recommended, colour, "white")),
-                   size = I(ifelse(recommended, 2.8, 2)),
-                   tooltip = tooltip, data_id = id),
-      shape = 21, stroke = 1.1
+      ggplot2::aes(group = panel, colour = I(colour), linetype = keys[2]),
+      linewidth = 0.8,
+      key_glyph = key_only_for("solid", ggplot2::draw_key_path,
+                               colour = dtp_colours$ink)
+    ) +
+    ggiraph::geom_point_interactive(
+      data = post[!post$recommended, , drop = FALSE],
+      ggplot2::aes(colour = I(colour), tooltip = tooltip, data_id = id),
+      fill = "white", shape = 21, size = 2, stroke = 1.1
+    ) +
+    ggiraph::geom_point_interactive(
+      data = rec,
+      ggplot2::aes(colour = I(colour), fill = I(colour),
+                   shape = "Recommended dose", tooltip = tooltip,
+                   data_id = id),
+      size = 2.8, stroke = 1.1
     ) +
     ggplot2::facet_wrap(~panel, ncol = 3) +
+    ggplot2::scale_linetype_manual(
+      NULL, values = key_lines, breaks = keys,
+      guide = ggplot2::guide_legend(order = 1)
+    ) +
+    # No recommended dose (stopped): no legend entry for it.
+    (if (nrow(rec) > 0) ggplot2::scale_shape_manual(
+      NULL, values = c(`Recommended dose` = 21),
+      guide = ggplot2::guide_legend(
+        order = 2,
+        override.aes = list(colour = dtp_colours$ink,
+                            fill = dtp_colours$ink)
+      )
+    )) +
     ggplot2::scale_x_continuous(breaks = seq_along(skeleton)) +
     ggplot2::scale_y_continuous(limits = c(0, 1)) +
-    ggplot2::labs(
-      x = "Dose level",
-      y = "P(DLT)",
-      caption = sprintf(
-        paste("Lines: posterior mean; grey dashed: prior. Bands: %g%%",
-              "credible intervals. Dotted: target (%g). Filled point:",
-              "recommended dose."),
-        100 * level, target
-      )
-    ) +
+    ggplot2::labs(x = "Dose level", y = "P(DLT)") +
     theme_dtp() +
     ggplot2::theme(
       panel.grid.major.x = ggplot2::element_blank(),
       strip.text = ggplot2::element_text(hjust = 0, face = "bold"),
       panel.spacing = ggplot2::unit(1.2, "lines"),
-      plot.caption = ggplot2::element_text(colour = dtp_colours$muted)
+      legend.box = "horizontal",
+      legend.key.width = ggplot2::unit(2.2, "lines")
     )
 }
 
