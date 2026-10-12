@@ -89,3 +89,17 @@ test_that("the recommendation tile's text contrasts with its colour", {
     expect_match(html, paste0("color:", text_on(colour)), fixed = TRUE)
   })
 })
+
+test_that("the default stopping prior follows the target", {
+  shiny::testServer(app_server, {
+    start(session)
+    expect_match(as.character(output$stop_prior_preview$html),
+                 "Be(0.25, 0.75)", fixed = TRUE)
+    session$setInputs(target = 0.3)
+    expect_match(as.character(output$stop_prior_preview$html),
+                 "Be(0.3, 0.7)", fixed = TRUE)
+    session$setInputs(stop_default_prior = FALSE)
+    expect_match(as.character(output$stop_prior_preview$html),
+                 "Be(2, 8)", fixed = TRUE)
+  })
+})

@@ -19,7 +19,7 @@ run_model <- function(settings, trial) {
   variance <- variance_from_settings(s$variance_type, s$variance,
                                      skeleton$skeleton, s$target)
   stop_prior <- stopping_prior(s$stop_default_prior, s$stop_prior_mean,
-                               s$stop_prior_ess)
+                               s$stop_prior_ess, s$target)
   problems <- c(
     validate_settings(s$obswin, s$day_of_assessment,
                       if (isTRUE(s$stop_on)) s$stop_n_min else 0),
@@ -240,7 +240,8 @@ app_server <- function(input, output, session) {
     }
   })
   output$stop_prior_preview <- shiny::renderUI({
-    p <- stopping_prior(FALSE, input$stop_prior_mean, input$stop_prior_ess)
+    p <- stopping_prior(input$stop_default_prior, input$stop_prior_mean,
+                        input$stop_prior_ess, input$target)
     htmltools::div(
       class = if (is.null(p$problem)) "form-text" else
         "form-text text-danger",

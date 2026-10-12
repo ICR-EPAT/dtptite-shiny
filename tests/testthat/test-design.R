@@ -65,7 +65,8 @@ test_that("parent design is the DTP design without the projection", {
 
 test_that("stopping-rule Beta prior is used (legacy app ignored it)", {
   # 2 DLTs in 3 patients at dose 1, stop if P(p1 > 25%) > 0.8.
-  # Be(0.1, 0.9): P = 0.869, stop. Be(2.5, 7.5): P = 0.757, continue.
+  # Default Be(0.25, 0.75): P = 0.902, stop. Be(2.5, 7.5): P = 0.757,
+  # continue.
   outcomes <- data.frame(dose = c(1, 1, 1), tox = c(1, 1, 0),
                          weight = c(1, 1, 1), cohort = 1:3)
   default_prior <- plain_design(stop_confidence = 0.8)

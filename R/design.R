@@ -121,7 +121,9 @@ beta_prior_from_mean <- function(mean, ess) {
 #'   lowest dose, or `NULL` for no stopping rule.
 #' @param stop_n_min Patients needed at the lowest dose before the stopping
 #'   rule applies.
-#' @param stop_a,stop_b Beta prior for the stopping rule.
+#' @param stop_a,stop_b Beta prior for the stopping rule. Defaults to the
+#'   weakly informative Be(target, 1 - target): mean at the target, effective
+#'   sample size 1.
 #' @param t_max Longest wait DTP considers, in days. Defaults to `obswin`.
 #' @return A list with `parent` (the design without DTP, refitted for each
 #'   projected day) and `dtp` (the full design).
@@ -129,7 +131,7 @@ build_design <- function(skeleton, target, obswin, variance = 1.34,
                          no_skip_esc = TRUE, no_skip_deesc = TRUE,
                          global_coherence = TRUE,
                          stop_confidence = NULL, stop_n_min = 1,
-                         stop_a = 0.1, stop_b = 0.9,
+                         stop_a = target, stop_b = 1 - target,
                          t_max = obswin) {
   stopifnot(all(skeleton > 0), all(skeleton < 1), !is.unsorted(skeleton),
             variance > 0)

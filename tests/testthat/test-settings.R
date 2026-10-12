@@ -63,13 +63,15 @@ test_that("half-width and rounding problems are explained", {
 })
 
 test_that("stopping prior is the default or from mean and sample size", {
-  expect_equal(stopping_prior(TRUE, NA, NA)[c("a", "b")],
-               list(a = 0.1, b = 0.9))
-  expect_equal(stopping_prior(FALSE, 0.2, 10)[c("a", "b")],
+  expect_equal(stopping_prior(TRUE, NA, NA, target = 0.25)[c("a", "b")],
+               list(a = 0.25, b = 0.75))
+  expect_equal(stopping_prior(TRUE, NA, NA, target = 0.3)[c("a", "b")],
+               list(a = 0.3, b = 0.7))
+  expect_equal(stopping_prior(FALSE, 0.2, 10, 0.25)[c("a", "b")],
                list(a = 2, b = 8))
-  expect_match(stopping_prior(FALSE, 1.2, 10)$problem, "between 0 and 1")
-  expect_match(stopping_prior(FALSE, 0.2, 0)$problem, "positive")
-  expect_match(stopping_prior(FALSE, NA, 10)$problem, "between 0 and 1")
+  expect_match(stopping_prior(FALSE, 1.2, 10, 0.25)$problem, "between 0 and 1")
+  expect_match(stopping_prior(FALSE, 0.2, 0, 0.25)$problem, "positive")
+  expect_match(stopping_prior(FALSE, NA, 10, 0.25)$problem, "between 0 and 1")
 })
 
 test_that("typed design settings are checked", {

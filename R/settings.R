@@ -64,13 +64,15 @@ skeleton_from_settings <- function(prior_type, target, halfwidth, prior_mtd,
 
 #' Beta prior for the safety stopping rule
 #'
-#' @param use_default Use the weakly informative Be(0.1, 0.9).
+#' @param use_default Use the weakly informative Be(target, 1 - target):
+#'   mean at the target, effective sample size 1.
 #' @param mean,ess Prior mean DLT rate at the lowest dose and effective
 #'   sample size, used otherwise.
+#' @param target Target DLT rate.
 #' @return A list with `a`, `b` and `problem` (a message, or `NULL`).
-stopping_prior <- function(use_default, mean, ess) {
+stopping_prior <- function(use_default, mean, ess, target) {
   if (isTRUE(use_default)) {
-    return(list(a = 0.1, b = 0.9, problem = NULL))
+    return(list(a = target, b = 1 - target, problem = NULL))
   }
   if (!is.numeric(mean) || is.na(mean) || mean <= 0 || mean >= 1) {
     return(list(a = NULL, b = NULL,

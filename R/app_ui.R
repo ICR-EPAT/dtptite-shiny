@@ -153,7 +153,7 @@ stopping_panel <- function() {
       ),
       bslib::input_switch(
         "stop_default_prior",
-        "Weakly informative prior Be(0.1, 0.9), effective sample size 1",
+        "Weakly informative prior Be(target, 1 \u2212 target), effective sample size 1",
         value = TRUE
       ),
       shiny::conditionalPanel(
@@ -164,9 +164,9 @@ stopping_panel <- function() {
                               step = 0.05),
           shiny::numericInput("stop_prior_ess", "Effective sample size",
                               value = 10, min = 0.1, step = 1)
-        ),
-        shiny::uiOutput("stop_prior_preview")
-      )
+        )
+      ),
+      shiny::uiOutput("stop_prior_preview")
     )
   )
 }
