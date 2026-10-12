@@ -220,6 +220,8 @@ prior_prob_tox_quantile <- function(skeleton, variance, p) {
 #'   Prior rows repeat in every panel.
 dose_toxicity_data <- function(pathway, skeleton, variance, target,
                                level = 0.9) {
+  # As model_table().
+  stopifnot(is.numeric(level), length(level) == 1, level > 0, level < 1)
   tail_p <- (1 - level) / 2
   doses <- seq_along(skeleton)
   fits <- key_fits(pathway)
