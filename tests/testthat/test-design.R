@@ -111,9 +111,13 @@ test_that("prior variance is passed to the model", {
 test_that("calibrated skeleton uses the fitted model and the dose count", {
   empiric <- calibrate_skeleton(target = 0.25, halfwidth = 0.05,
                                 prior_mtd = 3, num_doses = 6)
-  logistic <- calibrate_skeleton(target = 0.25, halfwidth = 0.05,
-                                 prior_mtd = 3, num_doses = 6,
-                                 model = "logistic")
+  # Legacy calibrated with the logistic model but fitted the empiric one.
+  logistic <- dfcrm::getprior(halfwidth = 0.05, target = 0.25, nu = 3,
+                              nlevel = 6, model = "logistic")
+  expect_equal(empiric, dfcrm::getprior(halfwidth = 0.05, target = 0.25,
+                                        nu = 3, nlevel = 6,
+                                        model = "empiric"))
+  expect_false("model" %in% names(formals(calibrate_skeleton)))
   expect_length(empiric, 6)
   expect_equal(empiric[3], 0.25)
   expect_false(is.unsorted(empiric))
@@ -135,12 +139,7 @@ test_that("calibration rejects intervals outside (0, 1)", {
 })
 
 test_that("calibration rejects skeletons getprior cannot make valid", {
-  # The interval is valid, but the logistic calibration gives NaN and the
-  # empiric one underflows the lowest dose to exactly 0.
-  expect_error(calibrate_skeleton(target = 0.8, halfwidth = 0.19,
-                                  prior_mtd = 3, num_doses = 5,
-                                  model = "logistic"),
-               "increasing DLT probabilities")
+  # The interval is valid, but the lowest dose underflows to exactly 0.
   expect_error(calibrate_skeleton(target = 0.05, halfwidth = 0.04,
                                   prior_mtd = 10, num_doses = 10),
                "increasing DLT probabilities")
@@ -149,11 +148,9 @@ test_that("calibration rejects skeletons getprior cannot make valid", {
 test_that("calibration accepts the app's slider extremes", {
   for (target in c(0.05, 0.5)) {
     for (halfwidth in c(0.03, min(0.13, target - 0.01))) {
-      for (model in c("empiric", "logistic")) {
-        skeleton <- calibrate_skeleton(target, halfwidth, prior_mtd = 1,
-                                       num_doses = 10, model = model)
-        expect_false(is.unsorted(skeleton, strictly = TRUE))
-      }
+      skeleton <- calibrate_skeleton(target, halfwidth, prior_mtd = 1,
+                                     num_doses = 10)
+      expect_false(is.unsorted(skeleton, strictly = TRUE))
     }
   }
 })
