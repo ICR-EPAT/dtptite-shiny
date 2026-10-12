@@ -70,7 +70,7 @@ summary_boxes <- function(result) {
   bslib::layout_columns(
     fill = FALSE,
     bslib::value_box(
-      title = sprintf("Recommendation on day %d", p$day_of_assessment),
+      title = sprintf("Day %d recommendation", p$day_of_assessment),
       value = if (now == "Stop") "Stop the trial" else
         sprintf("Dose %d", first$dose),
       showcase = bsicons::bs_icon(decision_icons[[now]]),

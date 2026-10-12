@@ -23,7 +23,7 @@ test_that("the example is fitted on start-up with defaults", {
     expect_equal(r$variance, least_informative_variance(skeleton, 0.25))
     expect_s3_class(r$pathway, "dtp_pathway")
     expect_match(as.character(output$summary_boxes$html),
-                 "Recommendation on day 50")
+                 "Day 50 recommendation")
   })
 })
 

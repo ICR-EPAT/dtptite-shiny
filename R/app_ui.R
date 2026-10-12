@@ -21,6 +21,11 @@ app_theme <- function() {
       .app-title img { height: 32px; }
       .accordion-button { font-weight: 600; }
       .form-text-skeleton { font-variant-numeric: tabular-nums; }
+      /* fillable = FALSE leaves the main area a block, where bslib's gap
+         spacing (which replaces card margins) has no effect. */
+      .bslib-page-main.bslib-gap-spacing {
+        display: flex; flex-direction: column;
+      }
     ")
 }
 
@@ -216,7 +221,7 @@ data_card <- function() {
           "Days followed are filled in for Ongoing and Completed patients."
         )
       ),
-      rhandsontable::rHandsontableOutput("grid"),
+      rhandsontable::rHandsontableOutput("grid", height = "auto"),
       shiny::uiOutput("data_problems")
     )
   )

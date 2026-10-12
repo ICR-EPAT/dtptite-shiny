@@ -92,7 +92,8 @@ render_grid <- function(frame, num_doses) {
   derived_rows <- which(frame$Status %in% c("Ongoing", "Completed"))
   hot <- rhandsontable::rhandsontable(
     frame, rowHeaders = paste0("P", seq_len(nrow(frame))),
-    stretchH = "all", height = min(80 + 28 * nrow(frame), 420)
+    # Natural height; long trials scroll inside the grid.
+    stretchH = "all", height = if (nrow(frame) > 15) 420
   ) |>
     rhandsontable::hot_col("Dose", type = "dropdown",
                            source = as.character(seq_len(num_doses)),
