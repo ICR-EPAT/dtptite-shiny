@@ -33,6 +33,67 @@ calibrate_skeleton <- function(target, halfwidth, prior_mtd, num_doses,
   skeleton
 }
 
+#' Prior probability that each dose is the MTD
+#'
+#' Under the empiric model with `beta ~ N(0, variance)`, dose `i` is the
+#' model's MTD when `beta` falls in its indifference interval, as given by
+#' [dfcrm::crmsens()]. The outer intervals are unbounded.
+#'
+#' @param skeleton Prior DLT probabilities, one per dose.
+#' @param target Target DLT rate.
+#' @param variance Prior variance of the model parameter.
+#' @return Numeric vector of probabilities, one per dose, summing to 1.
+prior_mtd_distribution <- function(skeleton, target, variance) {
+  stopifnot(variance > 0)
+  hset <- dfcrm::crmsens(skeleton, target = target, model = "empiric",
+                         detail = TRUE)$Hset
+  cuts <- hset[-nrow(hset), 2]
+  diff(c(0, stats::pnorm(cuts, mean = 0, sd = sqrt(variance)), 1))
+}
+
+#' Least informative prior variance (Lee and Cheung, 2011)
+#'
+#' The variance whose prior MTD distribution ([prior_mtd_distribution()])
+#' is closest to uniform, by Kullback-Leibler divergence. The search over
+#' the prior standard deviation is continuous: a coarse grid, then
+#' [stats::optimize()] around its best point.
+#'
+#' @param skeleton Prior DLT probabilities, one per dose.
+#' @param target Target DLT rate.
+#' @param sd_min,sd_max Range of prior standard deviations searched; a
+#'   warning is given when the optimum is at either limit, as then the
+#'   least informative variance lies outside the range.
+#' @return The prior variance.
+#' @references Lee SM, Cheung YK (2011). Calibration of prior variance in
+#'   the Bayesian continual reassessment method. Statistics in Medicine
+#'   30(17):2081-2089.
+least_informative_variance <- function(skeleton, target, sd_min = 0.001,
+                                       sd_max = 10) {
+  stopifnot(is.numeric(sd_min), is.numeric(sd_max), length(sd_min) == 1,
+            length(sd_max) == 1, sd_min > 0, sd_max > sd_min)
+  k <- length(skeleton)
+  divergence <- function(sd) {
+    mu <- prior_mtd_distribution(skeleton, target, sd^2)
+    sum(ifelse(mu > 0, mu * log(mu * k), 0))
+  }
+  # A coarse grid first, so optimize() starts in the right basin.
+  grid <- exp(seq(log(sd_min), log(sd_max), length.out = 250))
+  best <- which.min(vapply(grid, divergence, numeric(1)))
+  lower <- grid[max(best - 1, 1)]
+  upper <- grid[min(best + 1, length(grid))]
+  sd <- stats::optimize(divergence, c(lower, upper), tol = 1e-10)$minimum
+  # Judge the refined optimum, not the grid point: it is at a limit only
+  # if optimize() ran into it.
+  at_limit <- function(limit) abs(log(sd / limit)) < 1e-4
+  if (at_limit(sd_min) || at_limit(sd_max)) {
+    warning(sprintf(
+      "The least informative prior SD is at the search limit (%g); it lies outside [%g, %g].",
+      if (at_limit(sd_min)) sd_min else sd_max, sd_min, sd_max
+    ), call. = FALSE)
+  }
+  sd^2
+}
+
 #' Beta prior parameters from a prior mean and effective sample size
 #'
 #' @param mean Prior mean DLT rate.
