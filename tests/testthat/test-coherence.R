@@ -42,15 +42,35 @@ test_that("other selector methods forward to the parent", {
   expect_length(escalation::mean_prob_tox(x), 5)
 })
 
-test_that("decorator works inside a dtptite DTP chain", {
-  design <- escalation::get_dfcrm_tite(skeleton = skeleton, target = 0.25) |>
+test_that("DTP projection refits go through the decorator", {
+  # 1/3 DLTs at the current dose 2 (above the 25% target), one patient still
+  # pending. Both designs recommend dose 2 now, so the cap can only act in
+  # the refits apply_dtp() makes while projecting the wait.
+  outcomes <- data.frame(dose = c(1, 2, 2, 2), tox = c(0, 1, 0, 0),
+                         weight = c(1, 1, 1, 0.3), cohort = 1:4)
+  low_skeleton <- c(0.01, 0.02, 0.04, 0.08, 0.15)
+  dtp <- function(design) {
+    design |>
+      dtptite::apply_dtp(t_max = Inf, obswin = 56, verbose = FALSE) |>
+      escalation::fit(outcomes)
+  }
+  plain <- escalation::get_dfcrm_tite(skeleton = low_skeleton,
+                                      target = 0.25) |> dtp()
+  coherent <- escalation::get_dfcrm_tite(skeleton = low_skeleton,
+                                         target = 0.25) |>
     enforce_global_coherence() |>
-    dtptite::apply_dtp(t_max = 30, obswin = 30, verbose = FALSE)
-  outcomes <- data.frame(dose = c(1, 1, 2, 2), tox = c(0, 0, 0, 0),
-                         weight = c(1, 1, 0.2, 0.1), cohort = 1:4)
-  x <- escalation::fit(design, outcomes)
-  expect_s3_class(x, "dtp_selector")
-  expect_false(is.na(escalation::recommended_dose(x)))
+    dtp()
+
+  # Without coherence, waiting 29 days would allow escalation to dose 3.
+  expect_equal(escalation::recommended_dose(plain), 2)
+  expect_equal(dtptite::dtp_wait_time(plain), 29)
+  expect_equal(dtptite::dtp_projected_dose(plain), 3L)
+
+  # With coherence, no amount of waiting escalates past dose 2.
+  expect_s3_class(coherent, "dtp_selector")
+  expect_equal(escalation::recommended_dose(coherent), 2)
+  expect_false(dtptite::dtp_should_wait(coherent))
+  expect_true(is.na(dtptite::dtp_projected_dose(coherent)))
 })
 
 test_that("matches dtpcrm::applied_titecrm global coherence", {
