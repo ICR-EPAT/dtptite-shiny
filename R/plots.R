@@ -95,7 +95,9 @@ plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
     ) +
     ggplot2::geom_vline(xintercept = day_of_assessment, linetype = "dashed",
                         colour = dtp_colours$ink, linewidth = 0.4) +
-    ggplot2::annotate("text", x = day_of_assessment, y = 0.2,
+    # Labels above the first patient: assessment day on the top line,
+    # change days on the line below, so close days do not overlap.
+    ggplot2::annotate("text", x = day_of_assessment, y = -0.45,
                       label = sprintf("Assessment, day %d", day_of_assessment),
                       hjust = -0.05, vjust = 0, size = 3,
                       colour = dtp_colours$ink) +
@@ -123,7 +125,7 @@ plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
     labels <- c(labels, "Next")
   }
   p + ggplot2::scale_y_reverse(breaks = seq_along(labels), labels = labels,
-                               expand = ggplot2::expansion(add = 0.6))
+                               expand = ggplot2::expansion(add = c(0.6, 1.3)))
 }
 
 add_pathway_row <- function(p, pathway, row) {
@@ -179,7 +181,7 @@ add_pathway_row <- function(p, pathway, row) {
     ) +
     ggplot2::geom_text(
       data = changes,
-      ggplot2::aes(x = start, y = 0.2, label = paste("Day", from_day)),
+      ggplot2::aes(x = start, y = 0.15, label = paste("Day", from_day)),
       inherit.aes = FALSE, hjust = -0.05, vjust = 0, size = 3,
       colour = dtp_colours$ink
     ) +
