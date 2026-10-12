@@ -14,10 +14,23 @@
 #' @return Numeric vector of prior DLT probabilities, one per dose.
 calibrate_skeleton <- function(target, halfwidth, prior_mtd, num_doses,
                                model = "empiric") {
-  stopifnot(prior_mtd >= 1, prior_mtd <= num_doses,
-            halfwidth > 0, halfwidth < target)
-  dfcrm::getprior(halfwidth = halfwidth, target = target, nu = prior_mtd,
-                  nlevel = num_doses, model = model)
+  stopifnot(prior_mtd >= 1, prior_mtd <= num_doses, halfwidth > 0)
+  if (target - halfwidth <= 0 || target + halfwidth >= 1) {
+    stop("The indifference interval target +/- halfwidth must lie within ",
+         "(0, 1).", call. = FALSE)
+  }
+  # getprior() warns "NaNs produced" on bad inputs; the check below gives
+  # a clearer error instead.
+  skeleton <- suppressWarnings(
+    dfcrm::getprior(halfwidth = halfwidth, target = target, nu = prior_mtd,
+                    nlevel = num_doses, model = model)
+  )
+  if (anyNA(skeleton) || any(skeleton <= 0 | skeleton >= 1) ||
+      is.unsorted(skeleton, strictly = TRUE)) {
+    stop("Calibration did not give increasing DLT probabilities within ",
+         "(0, 1); try a smaller halfwidth.", call. = FALSE)
+  }
+  skeleton
 }
 
 #' Beta prior parameters from a prior mean and effective sample size
