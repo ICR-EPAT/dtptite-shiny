@@ -70,6 +70,35 @@ test_that("projected follow-up is drawn only for Ongoing patients", {
   expect_equal(dashed$xend, c(36, 37, 42) + 29)
 })
 
+test_that("non-evaluable patients are grey, without projected follow-up", {
+  x <- trial
+  x$evaluable[c(6, 9)] <- FALSE
+  p <- plot_timeline(x, 50, 30, num_doses = 5)
+  seg <- layer_data_of(p, "GeomSegment")
+  expect_equal(seg$colour[c(6, 9)], rep(dtp_colours$excluded, 2))
+  expect_equal(seg$colour[-c(6, 9)], dose_colours(5)[x$dose[-c(6, 9)]])
+  points <- layer_data_of(p, "GeomPoint")
+  expect_equal(as.vector(points$colour[6]), dtp_colours$excluded)
+
+  dashed <- ggplot2::ggplot_build(p)$data[[2]]
+  expect_equal(-dashed$y, c(7, 8))
+  expect_match(timeline_data(x, 50, 30)$tooltip[9], "Not evaluable")
+
+  legend <- ggplot2::ggplot_build(p)$plot$scales$get_scales("colour")
+  expect_equal(as.vector(legend$get_breaks()),
+               c("1", "2", "Not evaluable"))
+  # Without non-evaluable patients, no legend entry.
+  plain <- ggplot2::ggplot_build(plot_timeline(trial, 50, 30, num_doses = 5))
+  expect_equal(
+    as.vector(plain$plot$scales$get_scales("colour")$get_breaks()),
+    c("1", "2")
+  )
+})
+
+test_that("the not-evaluable grey has 3:1 contrast on white", {
+  expect_gte(contrast_ratio(dtp_colours$excluded, "#FFFFFF"), 3)
+})
+
 test_that("dose-toxicity data has one panel per key day, with the prior", {
   d <- dose_toxicity_data(pathway, skeleton, 1.34, target, level = 0.9)
   fits <- key_fits(pathway)

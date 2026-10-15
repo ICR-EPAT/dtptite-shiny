@@ -40,17 +40,28 @@ status_colours <- c(Completed = dtp_colours$muted,
 #'   window; projected follow-up runs from `last_day` to it for Ongoing
 #'   patients) and a `tooltip`.
 timeline_data <- function(data, day_of_assessment, obswin) {
+  if (is.null(data$evaluable)) data$evaluable <- rep(TRUE, nrow(data))
   data$last_day <- data$entry_day + data$days_followed - 1
   data$window_end <- data$entry_day + obswin - 1
-  data$tooltip <- sprintf(
-    "<b>Patient %d</b><br>Dose level %d, entered day %g<br>%s: %g of %g days (weight %.2f)",
-    data$patient, data$dose, data$entry_day, data$status,
-    data$days_followed, obswin, data$weight
+  data$tooltip <- ifelse(
+    data$evaluable,
+    sprintf(
+      "<b>Patient %d</b><br>Dose level %d, entered day %g<br>%s: %g of %g days (weight %.2f)",
+      data$patient, data$dose, data$entry_day, data$status,
+      data$days_followed, obswin, data$weight
+    ),
+    sprintf(
+      "<b>Patient %d</b><br>Dose level %d, entered day %g<br>%s: %g of %g days<br>Not evaluable: not in the model",
+      data$patient, data$dose, data$entry_day, data$status,
+      data$days_followed, obswin
+    )
   )
   data
 }
 
 #' Study timeline, with the dose transition pathway when given
+#'
+#' Non-evaluable patients are drawn in grey, without projected follow-up.
 #'
 #' @param data Normalised trial data, see [normalise_trial_data()].
 #' @param day_of_assessment Study day of the analysis (T_A).
@@ -61,12 +72,18 @@ timeline_data <- function(data, day_of_assessment, obswin) {
 plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
                           pathway = NULL) {
   d <- timeline_data(data, day_of_assessment, obswin)
-  d$dose_f <- factor(d$dose, levels = seq_len(num_doses))
+  # Colour by dose level, or grey when not evaluable.
+  excluded_key <- "Not evaluable"
+  d$dose_f <- factor(ifelse(d$evaluable, d$dose, excluded_key),
+                     levels = c(seq_len(num_doses), excluded_key))
   d$status <- factor(d$status, levels = names(status_shapes))
+  d$point_colour <- ifelse(d$evaluable,
+                           status_colours[as.character(d$status)],
+                           dtp_colours$excluded)
   d$id <- paste0("patient-", d$patient)
   n <- nrow(d)
-  ongoing <- d[d$status == "Ongoing" & d$window_end > d$last_day, ,
-               drop = FALSE]
+  ongoing <- d[d$evaluable & d$status == "Ongoing" &
+                 d$window_end > d$last_day, , drop = FALSE]
   change_days <- if (!is.null(pathway)) pathway$runs$from_day[-1]
   day_keys <- c(
     sprintf("Assessment, day %d", day_of_assessment),
@@ -91,8 +108,7 @@ plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
       linewidth = 1.1, linetype = "22", alpha = 0.7, show.legend = FALSE
     ) +
     ggiraph::geom_point_interactive(
-      ggplot2::aes(x = last_day, shape = status,
-                   colour = I(status_colours[as.character(status)]),
+      ggplot2::aes(x = last_day, shape = status, colour = I(point_colour),
                    tooltip = tooltip, data_id = id),
       size = 2.6, stroke = 1.2, fill = "white"
     ) +
@@ -113,9 +129,11 @@ plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
     # Colours fixed by dose level; the legend lists the doses given.
     ggplot2::scale_colour_manual(
       "Dose level",
-      values = stats::setNames(dose_colours(num_doses),
-                               seq_len(num_doses)),
-      breaks = as.character(sort(unique(d$dose))),
+      values = stats::setNames(c(dose_colours(num_doses),
+                                 dtp_colours$excluded),
+                               c(seq_len(num_doses), excluded_key)),
+      breaks = c(as.character(sort(unique(d$dose[d$evaluable]))),
+                 if (!all(d$evaluable)) excluded_key),
       guide = ggplot2::guide_legend(order = 2)
     ) +
     ggplot2::scale_shape_manual(
