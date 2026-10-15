@@ -127,3 +127,35 @@ test_that("the next-change icon shows the next decision in its colour", {
     expect_no_match(html, "style:color")
   })
 })
+
+test_that("only evaluable patients go into the model and the pathway", {
+  # The ongoing dose-2 patients P7-P9 are not evaluable, and P9 is the last
+  # patient entered.
+  trial_data <- example_trial_data()
+  trial_data$evaluable[7:9] <- FALSE
+  excluded <- run_model(defaults, trial_data)
+  dropped <- run_model(defaults, example_trial_data()[1:6, ])
+
+  expect_length(excluded$problems, 0)
+  expect_equal(nrow(excluded$data), 9)
+  expect_equal(excluded$pathway$days, dropped$pathway$days)
+  expect_equal(excluded$pathway$current_dose, 2)
+  # No evaluable patient is still in follow-up.
+  expect_equal(excluded$pathway$complete_day, 50)
+  html <- as.character(summary_boxes(excluded))
+  expect_match(html, "0 patients in follow-up")
+  expect_match(html, "3 not evaluable, not in the model")
+})
+
+test_that("a non-evaluable last patient does not set the current dose", {
+  trial_data <- rbind(
+    example_trial_data(),
+    data.frame(dose = 3, entry_day = 45, status = "Ongoing",
+               days_followed = NA, evaluable = FALSE)
+  )
+  r <- run_model(defaults, trial_data)
+  expect_length(r$problems, 0)
+  expect_equal(r$pathway$current_dose, 2)
+  expect_equal(r$pathway$days,
+               run_model(defaults, example_trial_data())$pathway$days)
+})
