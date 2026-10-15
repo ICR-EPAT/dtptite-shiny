@@ -8,23 +8,46 @@
 #   DLT        had a DLT (weight 1, as in dfcrm and escalation)
 #   Withdrawn  left DLT follow-up early without a DLT (e.g. progression);
 #              their partial weight is frozen
+#
+# Each patient is also evaluable for DLT or not (e.g. replaced); only
+# evaluable patients go into the model and the dose transition pathway.
 
 trial_statuses <- c("Ongoing", "Completed", "DLT", "Withdrawn")
 
+#' Read evaluability from logical, Yes/No or 1/0 values
+#'
+#' @param x A vector of evaluability values.
+#' @return A logical vector, `NA` where a value is missing or not
+#'   recognised (reported by [validate_trial_data()]).
+parse_evaluable <- function(x) {
+  if (is.logical(x)) return(x)
+  key <- tolower(trimws(as.character(x)))
+  out <- rep(NA, length(key))
+  out[key %in% c("true", "yes", "y", "1")] <- TRUE
+  out[key %in% c("false", "no", "n", "0")] <- FALSE
+  out
+}
+
 #' Normalise trial data and derive TITE weights
 #'
-#' @param data A data.frame with columns `dose`, `entry_day`, `status` and
-#'   `days_followed`. `days_followed` is only used for DLT and Withdrawn
-#'   patients; it may be `NA` otherwise.
+#' @param data A data.frame with columns `dose`, `entry_day`, `status`,
+#'   `days_followed` and optionally `evaluable` (all evaluable when
+#'   missing). `days_followed` is only used for DLT and Withdrawn patients;
+#'   it may be `NA` otherwise.
 #' @param day_of_assessment Study day of the analysis (T_A).
 #' @param obswin Length of the DLT observation window, in days.
-#' @return `data` sorted by entry day with `patient`, `tox`, `monitored`,
-#'   `days_followed` (derived where needed) and `weight` columns added.
+#' @return `data` sorted by entry day with `patient`, `evaluable`, `tox`,
+#'   `monitored`, `days_followed` (derived where needed) and `weight`
+#'   columns added. Non-evaluable patients are kept; see
+#'   [evaluable_patients()].
 normalise_trial_data <- function(data, day_of_assessment, obswin) {
   stopifnot(is.data.frame(data),
             all(c("dose", "entry_day", "status") %in% names(data)))
   if (!"days_followed" %in% names(data)) {
     data$days_followed <- rep(NA_real_, nrow(data))
+  }
+  if (!"evaluable" %in% names(data)) {
+    data$evaluable <- rep(TRUE, nrow(data))
   }
 
   data <- data[order(data$entry_day), , drop = FALSE]
@@ -42,11 +65,21 @@ normalise_trial_data <- function(data, day_of_assessment, obswin) {
     dose = as.integer(data$dose),
     entry_day = as.numeric(data$entry_day),
     status = factor(status, levels = trial_statuses),
+    evaluable = parse_evaluable(data$evaluable),
     days_followed = days,
     tox = as.integer(status == "DLT"),
     monitored = status == "Ongoing",
     weight = ifelse(status == "DLT", 1, pmin(days / obswin, 1))
   )
+}
+
+#' Patients that go into the model
+#'
+#' @param data Output of [normalise_trial_data()].
+#' @return The evaluable patients, in entry order and keeping their patient
+#'   numbers; the last row's dose is the current dose.
+evaluable_patients <- function(data) {
+  data[data$evaluable %in% TRUE, , drop = FALSE]
 }
 
 #' Convert normalised trial data to escalation/dtptite outcomes
@@ -114,6 +147,15 @@ validate_trial_data <- function(data, num_doses, day_of_assessment, obswin) {
       "cannot have completed the %d-day window by the day of assessment (day %d).",
       obswin, day_of_assessment)))
   }
+  evaluable <- if (is.null(data$evaluable)) rep(TRUE, nrow(data)) else
+    parse_evaluable(data$evaluable)
+  bad <- which(is.na(evaluable))
+  if (length(bad)) {
+    problems <- c(problems, row_msg(bad, "evaluable must be Yes or No."))
+  }
+  if (!any(evaluable %in% TRUE)) {
+    problems <- c(problems, "At least one patient must be evaluable.")
+  }
   problems
 }
 
@@ -124,7 +166,8 @@ validate_trial_data <- function(data, num_doses, day_of_assessment, obswin) {
 #'
 #' @param legacy A data.frame with the five legacy columns, in order.
 #' @inheritParams normalise_trial_data
-#' @return A data.frame with `dose`, `entry_day`, `status`, `days_followed`.
+#' @return A data.frame with `dose`, `entry_day`, `status`, `days_followed`,
+#'   `evaluable` (all evaluable).
 from_legacy_format <- function(legacy, obswin) {
   stopifnot(ncol(legacy) == 5)
   names(legacy) <- c("level", "tox", "entry", "followup", "monitored")
@@ -138,7 +181,8 @@ from_legacy_format <- function(legacy, obswin) {
     entry_day = legacy$entry,
     status = status,
     days_followed = ifelse(status %in% c("DLT", "Withdrawn"),
-                           legacy$followup, NA_real_)
+                           legacy$followup, NA_real_),
+    evaluable = rep(TRUE, nrow(legacy))
   )
 }
 
@@ -147,18 +191,21 @@ column_aliases <- list(
   dose = c("dose", "dose_level", "level"),
   entry_day = c("entry_day", "entry", "entry_date"),
   status = c("status", "follow_up_status", "dlt_status"),
-  days_followed = c("days_followed", "followup", "follow_up", "days")
+  days_followed = c("days_followed", "followup", "follow_up", "days"),
+  evaluable = c("evaluable", "dlt_evaluable", "evaluability")
 )
 
 #' Read uploaded trial data
 #'
-#' Accepts the status-based format (a CSV or Excel file with a header row)
-#' and the legacy headerless five-column CSV.
+#' Accepts the status-based format (a CSV or Excel file with a header row;
+#' `days_followed` and `evaluable` are optional) and the legacy headerless
+#' five-column CSV.
 #'
 #' @param path Path to the uploaded file.
 #' @param name Original file name, used to pick the reader.
 #' @inheritParams normalise_trial_data
-#' @return A data.frame with `dose`, `entry_day`, `status`, `days_followed`.
+#' @return A data.frame with `dose`, `entry_day`, `status`, `days_followed`,
+#'   `evaluable` (`NA` where not recognised).
 read_trial_file <- function(path, name = path, obswin) {
   if (grepl("[.]xlsx?$", name, ignore.case = TRUE)) {
     raw <- as.data.frame(readxl::read_excel(path))
@@ -190,6 +237,9 @@ read_trial_file <- function(path, name = path, obswin) {
   if (is.null(out$days_followed)) {
     out$days_followed <- rep(NA_real_, nrow(raw))
   }
+  if (is.null(out$evaluable)) {
+    out$evaluable <- rep(TRUE, nrow(raw))
+  }
 
   # Match status case-insensitively to the canonical labels.
   status <- trimws(as.character(out$status))
@@ -198,7 +248,8 @@ read_trial_file <- function(path, name = path, obswin) {
     dose = as.numeric(out$dose),
     entry_day = as.numeric(out$entry_day),
     status = ifelse(is.na(canonical), status, canonical),
-    days_followed = suppressWarnings(as.numeric(out$days_followed))
+    days_followed = suppressWarnings(as.numeric(out$days_followed)),
+    evaluable = parse_evaluable(out$evaluable)
   )
 }
 
@@ -216,6 +267,7 @@ example_trial_data <- function() {
     entry_day = c(1, 2, 7, 9, 12, 14, 36, 37, 42),
     status = c("Completed", "Completed", "Completed", "Completed",
                "Withdrawn", "DLT", "Ongoing", "Ongoing", "Ongoing"),
-    days_followed = c(NA, NA, NA, NA, 13, 20, NA, NA, NA)
+    days_followed = c(NA, NA, NA, NA, 13, 20, NA, NA, NA),
+    evaluable = TRUE
   )
 }
