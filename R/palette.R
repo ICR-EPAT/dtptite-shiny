@@ -10,7 +10,8 @@ dtp_colours <- list(
   rule = "#CED4DA",
   accent = "#1F4E79",
   dlt = "#D55E00",
-  # Patients not in the model; 3:1 on white, so it still reads as a mark.
+  # Marks for patients not in the model: 3:1 on white, enough for
+  # graphics; their labels use `muted`, which reads as text.
   excluded = "#868E96",
   decision = c(D = "#0072B2", S = "#E69F00", E = "#009E73",
                Stop = "#D55E00")

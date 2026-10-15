@@ -95,8 +95,16 @@ test_that("non-evaluable patients are grey, without projected follow-up", {
   )
 })
 
-test_that("the not-evaluable grey has 3:1 contrast on white", {
+test_that("non-evaluable marks have 3:1 contrast and labels 4.5:1", {
+  # Review of #10: the grey was also used for the dose labels.
   expect_gte(contrast_ratio(dtp_colours$excluded, "#FFFFFF"), 3)
+  x <- trial
+  x$evaluable[6] <- FALSE
+  labels <- layer_data_of(plot_timeline(x, 50, 30, num_doses = 5),
+                          "GeomText")
+  expect_equal(as.vector(labels$colour[6]), dtp_colours$muted)
+  expect_equal(as.vector(labels$colour[-6]), dose_colours(5)[x$dose[-6]])
+  expect_gte(contrast_ratio(labels$colour[6], "#FFFFFF"), 4.5)
 })
 
 test_that("dose-toxicity data has one panel per key day, with the prior", {
