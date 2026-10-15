@@ -10,7 +10,8 @@ decision_icons <- c(D = "arrow-down-circle", S = "arrow-right-circle",
 #' @param settings A list of the sidebar settings (see `app_server()`).
 #' @param trial Canonical trial data.
 #' @return A list with `problems` (character, empty when fitted) and, when
-#'   fitted, `design`, `data`, `pathway` and the settings used.
+#'   fitted, `design`, `data` (every patient), `pathway` (evaluable patients
+#'   only) and the settings used.
 run_model <- function(settings, trial) {
   s <- settings
   skeleton <- skeleton_from_settings(s$prior_type, s$target, s$halfwidth,
@@ -46,8 +47,8 @@ run_model <- function(settings, trial) {
       stop_b = stop_prior$b
     )
     data <- normalise_trial_data(trial, s$day_of_assessment, s$obswin)
-    pathway <- dtp_pathway(design$parent, data, s$day_of_assessment,
-                           s$obswin)
+    pathway <- dtp_pathway(design$parent, evaluable_patients(data),
+                           s$day_of_assessment, s$obswin)
     list(problems = character(), design = design, data = data,
          pathway = pathway, skeleton = skeleton$skeleton,
          variance = variance$variance, settings = s)
@@ -64,8 +65,10 @@ summary_boxes <- function(result) {
   colour <- dtp_colours$decision[[now]]
   first <- p$runs[1, ]
   later <- p$runs[-1, , drop = FALSE]
-  pending <- sum(result$data$monitored &
-                   result$data$weight < 1)
+  # As the pathway: evaluable patients only.
+  in_model <- evaluable_patients(result$data)
+  pending <- sum(in_model$monitored & in_model$weight < 1)
+  excluded <- nrow(result$data) - nrow(in_model)
 
   # A slim icon column leaves room for the text in narrow tiles.
   tile_layout <- bslib::showcase_left_center(width = 0.25)
@@ -121,8 +124,12 @@ summary_boxes <- function(result) {
         sprintf("Day %d", p$complete_day),
       showcase = bsicons::bs_icon("hourglass-split"),
       theme = "light",
-      htmltools::p(sprintf("%d patient%s in follow-up", pending,
-                           if (pending == 1) "" else "s"))
+      htmltools::p(class = "mb-0",
+                   sprintf("%d patient%s in follow-up", pending,
+                           if (pending == 1) "" else "s")),
+      if (excluded) {
+        htmltools::p(sprintf("%d not evaluable, not in the model", excluded))
+      }
     )
   )
 }
