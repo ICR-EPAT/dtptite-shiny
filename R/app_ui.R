@@ -194,8 +194,9 @@ data_card <- function() {
           htmltools::p(
             class = "small text-secondary",
             "Columns: dose, entry_day, status (Ongoing, Completed, DLT,",
-            "Withdrawn), days_followed (for DLT and Withdrawn). The legacy",
-            "app's five-column CSV is also accepted."
+            "Withdrawn), days_followed (for DLT and Withdrawn) and,",
+            "optionally, evaluable (Yes or No; everyone is evaluable",
+            "without it). The legacy app's five-column CSV is also accepted."
           ),
           htmltools::div(
             class = "d-flex flex-column gap-2",
@@ -221,7 +222,8 @@ data_card <- function() {
         htmltools::p(
           class = "small text-secondary mb-0 align-self-center",
           "Edit cells directly; right-click a row to insert or remove it.",
-          "Days followed are filled in for Ongoing and Completed patients."
+          "Days followed are filled in for Ongoing and Completed patients.",
+          "Untick Evaluable to leave a patient out of the model."
         )
       ),
       rhandsontable::rHandsontableOutput("grid", height = "auto"),
