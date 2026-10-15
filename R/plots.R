@@ -77,6 +77,8 @@ plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
   d$dose_f <- factor(ifelse(d$evaluable, d$dose, excluded_key),
                      levels = c(seq_len(num_doses), excluded_key))
   d$status <- factor(d$status, levels = names(status_shapes))
+  d$label_colour <- ifelse(d$evaluable, dose_colours(num_doses)[d$dose],
+                           dtp_colours$muted)
   d$point_colour <- ifelse(d$evaluable,
                            status_colours[as.character(d$status)],
                            dtp_colours$excluded)
@@ -112,9 +114,11 @@ plot_timeline <- function(data, day_of_assessment, obswin, num_doses,
                    tooltip = tooltip, data_id = id),
       size = 2.6, stroke = 1.2, fill = "white"
     ) +
+    # Labels are text, so non-evaluable ones take the darker muted grey
+    # (4.5:1 on white) rather than the excluded grey of the marks.
     ggplot2::geom_text(
       ggplot2::aes(x = entry_day, label = paste0("D", dose),
-                   colour = dose_f),
+                   colour = I(label_colour)),
       hjust = 1, nudge_x = -0.6, size = 3, fontface = "bold",
       show.legend = FALSE
     ) +
