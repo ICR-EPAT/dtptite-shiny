@@ -2,19 +2,22 @@
 #
 # The grid shows patients sorted by entry day (P1, P2, ... as in the plots)
 # with derived columns: days followed for Ongoing and Completed patients
-# (read-only) and the TITE weight.
+# (read-only) and the TITE weight (blank for non-evaluable patients, who
+# are not in the model).
 
-grid_columns <- c("Dose", "Entry day", "Status", "Days followed", "Weight")
+grid_columns <- c("Dose", "Entry day", "Status", "Days followed",
+                  "Evaluable", "Weight")
 
 #' Canonical trial data: typed columns, sorted by entry day
 #'
 #' Days followed are kept only where they are entered (DLT, Withdrawn).
 #'
 #' @param trial A data.frame with `dose`, `entry_day`, `status` and
-#'   optionally `days_followed`.
+#'   optionally `days_followed` and `evaluable` (all evaluable when
+#'   missing).
 #' @return The same patients with numeric `dose`, `entry_day`,
-#'   `days_followed` and character `status`, sorted by entry day (missing
-#'   last, ties in input order).
+#'   `days_followed`, character `status` and logical `evaluable`, sorted by
+#'   entry day (missing last, ties in input order).
 canonical_trial <- function(trial) {
   days <- if (is.null(trial$days_followed)) NA_real_ else
     suppressWarnings(as.numeric(trial$days_followed))
@@ -22,7 +25,9 @@ canonical_trial <- function(trial) {
     dose = suppressWarnings(as.numeric(as.character(trial$dose))),
     entry_day = suppressWarnings(as.numeric(trial$entry_day)),
     status = as.character(trial$status),
-    days_followed = days
+    days_followed = days,
+    evaluable = if (is.null(trial$evaluable)) rep(TRUE, nrow(trial)) else
+      parse_evaluable(trial$evaluable)
   )
   out$days_followed[!out$status %in% c("DLT", "Withdrawn")] <- NA_real_
   out <- out[order(out$entry_day, na.last = TRUE), , drop = FALSE]
@@ -36,7 +41,7 @@ canonical_trial <- function(trial) {
 #' @inheritParams normalise_trial_data
 #' @return A data.frame with [grid_columns]; days followed are derived for
 #'   Ongoing and Completed patients, and the weight is `NA` when the row is
-#'   incomplete or out of range.
+#'   incomplete or out of range, or the patient is not evaluable.
 grid_frame <- function(trial, day_of_assessment, obswin) {
   derived <- tryCatch(
     normalise_trial_data(trial, day_of_assessment, obswin),
@@ -46,11 +51,13 @@ grid_frame <- function(trial, day_of_assessment, obswin) {
   weight <- rep(NA_real_, nrow(trial))
   if (!is.null(derived) && nrow(derived) == nrow(trial)) {
     days <- derived$days_followed
-    ok <- !is.na(derived$weight) & derived$weight >= 0 & derived$weight <= 1
+    ok <- !is.na(derived$weight) & derived$weight >= 0 &
+      derived$weight <= 1 & derived$evaluable %in% TRUE
     weight[ok] <- derived$weight[ok]
   }
   out <- data.frame(
-    as.character(trial$dose), trial$entry_day, trial$status, days, weight
+    as.character(trial$dose), trial$entry_day, trial$status, days,
+    trial$evaluable, weight
   )
   names(out) <- grid_columns
   out
@@ -67,7 +74,8 @@ trial_from_grid <- function(grid) {
     dose = grid[["Dose"]],
     entry_day = grid[["Entry day"]],
     status = grid[["Status"]],
-    days_followed = grid[["Days followed"]]
+    days_followed = grid[["Days followed"]],
+    evaluable = grid[["Evaluable"]]
   ))
 }
 
@@ -80,7 +88,7 @@ add_patient <- function(trial, day_of_assessment) {
   canonical_trial(rbind(trial, data.frame(
     dose = if (length(last_dose)) last_dose else 1,
     entry_day = day_of_assessment, status = "Ongoing",
-    days_followed = NA_real_
+    days_followed = NA_real_, evaluable = TRUE
   )))
 }
 
@@ -101,6 +109,7 @@ render_grid <- function(frame, num_doses) {
     rhandsontable::hot_col("Status", type = "dropdown",
                            source = trial_statuses, strict = TRUE) |>
     rhandsontable::hot_col(c("Entry day", "Days followed"), format = "0") |>
+    rhandsontable::hot_col("Evaluable", type = "checkbox") |>
     rhandsontable::hot_col("Weight", readOnly = TRUE, format = "0.00") |>
     rhandsontable::hot_cols(renderer = "
       function (instance, td, row, col, prop, value, cellProperties) {

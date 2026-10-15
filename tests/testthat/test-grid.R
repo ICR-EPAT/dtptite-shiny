@@ -5,10 +5,14 @@ test_that("canonical trial data is typed and sorted by entry day", {
   expect_equal(canonical_trial(shuffled), example)
   expect_type(example$dose, "double")
   expect_type(example$status, "character")
+  expect_type(example$evaluable, "logical")
   # Days followed are only kept where they are entered.
   x <- example_trial_data()
   x$days_followed[1] <- 12
   expect_true(is.na(canonical_trial(x)$days_followed[1]))
+  # Evaluable unless recorded otherwise.
+  x$evaluable <- NULL
+  expect_true(all(canonical_trial(x)$evaluable))
 })
 
 test_that("grid shows derived days and weights, read-only where derived", {
@@ -29,6 +33,16 @@ test_that("grid round-trips to the same trial data", {
   expect_equal(trial_from_grid(g), example)
 })
 
+test_that("non-evaluable patients round-trip with a blank weight", {
+  x <- example
+  x$evaluable[c(6, 9)] <- FALSE
+  g <- grid_frame(x, day_of_assessment = 50, obswin = 30)
+  expect_equal(g$Evaluable, x$evaluable)
+  expect_true(all(is.na(g$Weight[c(6, 9)])))
+  expect_equal(g$Weight[8], 14 / 30)
+  expect_equal(trial_from_grid(g), x)
+})
+
 test_that("switching to DLT keeps the days the grid showed", {
   g <- grid_frame(example, day_of_assessment = 50, obswin = 30)
   g$Status[7] <- "DLT"
@@ -39,7 +53,7 @@ test_that("switching to DLT keeps the days the grid showed", {
 
 test_that("incomplete rows keep the grid usable", {
   x <- rbind(example, data.frame(dose = NA, entry_day = NA, status = NA,
-                                 days_followed = NA))
+                                 days_followed = NA, evaluable = TRUE))
   g <- grid_frame(canonical_trial(x), 50, 30)
   expect_equal(nrow(g), 10)
   expect_true(is.na(g$Weight[10]))
@@ -55,6 +69,7 @@ test_that("a new patient enters on T_A at the last dose", {
   expect_equal(added$dose[10], 2)
   expect_equal(added$entry_day[10], 50)
   expect_equal(added$status[10], "Ongoing")
+  expect_true(added$evaluable[10])
   first <- add_patient(canonical_trial(example[0, ]), 1)
   expect_equal(first$dose, 1)
 })

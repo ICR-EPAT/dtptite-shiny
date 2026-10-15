@@ -32,6 +32,7 @@ test_that("legacy five-column rows map to statuses", {
   expect_equal(x$status,
                c("Completed", "Withdrawn", "DLT", "Ongoing", "Ongoing"))
   expect_equal(x$days_followed, c(NA, 4, 12, NA, NA))
+  expect_true(all(x$evaluable))
 })
 
 test_that("legacy fixture files are detected and read", {
@@ -52,6 +53,23 @@ test_that("headered uploads accept aliases and any status case", {
   expect_equal(x$dose, c(1, 2))
   expect_equal(x$status, c("Completed", "DLT"))
   expect_equal(x$days_followed, c(NA, 5))
+  # No evaluable column: everyone is evaluable.
+  expect_equal(x$evaluable, c(TRUE, TRUE))
+})
+
+test_that("evaluability is read from Yes/No, TRUE/FALSE or 1/0", {
+  expect_equal(parse_evaluable(c("Yes", "no", " Y ", "n", "TRUE", "false",
+                                 "1", "0", "", NA, "maybe")),
+               c(TRUE, FALSE, TRUE, FALSE, TRUE, FALSE, TRUE, FALSE, NA,
+                 NA, NA))
+  expect_equal(parse_evaluable(c(1, 0)), c(TRUE, FALSE))
+  expect_equal(parse_evaluable(c(TRUE, NA)), c(TRUE, NA))
+
+  path <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("dose,entry_day,status,days_followed,Evaluable",
+               "1,1,Completed,,Yes",
+               "1,2,Withdrawn,4,No"), path)
+  expect_equal(read_trial_file(path, obswin = 30)$evaluable, c(TRUE, FALSE))
 })
 
 test_that("uploads missing a required column are rejected", {
@@ -78,6 +96,28 @@ test_that("validation reports each problem with patient numbers", {
   expect_match(problems[1], "Patient\\(s\\) 2: dose level")
   expect_match(problems[2], "Patient\\(s\\) 2: entry day is after")
   expect_match(problems[3], "Patient\\(s\\) 3: days followed")
+})
+
+test_that("evaluability must be recorded, with at least one evaluable", {
+  d <- example_trial_data()
+  d$evaluable[c(2, 5)] <- NA
+  problems <- validate_trial_data(d, num_doses = 5, day_of_assessment = 50,
+                                  obswin = 30)
+  expect_equal(problems, "Patient(s) 2, 5: evaluable must be Yes or No.")
+
+  d$evaluable <- FALSE
+  expect_equal(validate_trial_data(d, 5, 50, 30),
+               "At least one patient must be evaluable.")
+})
+
+test_that("only evaluable patients are kept for the model", {
+  d <- example_trial_data()
+  d$evaluable[c(6, 9)] <- FALSE
+  x <- normalise_trial_data(d, day_of_assessment = 50, obswin = 30)
+  expect_equal(nrow(x), 9)
+  kept <- evaluable_patients(x)
+  expect_equal(kept$patient, c(1:5, 7:8))
+  expect_true(all(kept$evaluable))
 })
 
 test_that("example data is valid for the default design", {
