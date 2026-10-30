@@ -39,7 +39,8 @@ available, as in the `tests` workflow on every pull request.
 - `app.R`: UI and server.
 - `R/`: engine helpers (auto-sourced by Shiny). Each file is written so it
   can move into `dtptite` later.
-- `tests/testthat/`: unit, regression and legacy-parity tests.
+- `tests/testthat/`: unit, regression and legacy-parity tests. The
+  parity tests compare with `dtpcrm`, the legacy engine, when installed.
 - `webr/`: the Shinylive build (`export.R`) and its smoke test
   (`smoke-test.R`), run by `.github/workflows/shinylive.yml`. Pushes to
   `main` publish the build to GitHub Pages.
