@@ -1,0 +1,10 @@
+Package: trialr
+Version: 0.1.6
+Title: Stand-in for 'trialr' in the browser
+Description: Lets 'escalation' load under webR, where 'rstan' cannot be
+    installed. Provides the three functions 'escalation' imports from
+    'trialr'; they stop with an error, as Stan models cannot run in the
+    browser. The app does not use them. Only bundled with the Shinylive
+    build of the app; never installed elsewhere.
+License: GPL-3
+Encoding: UTF-8

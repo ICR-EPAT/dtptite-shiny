@@ -1,0 +1,59 @@
+# Build the browser (Shinylive) version of the app, check that it runs, and
+# publish it from main to the gh-pages branch, served by GitHub Pages.
+name: shinylive
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shinylive-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      # shinylive::export() reads the installed packages to decide which
+      # webR binaries to bundle, so the app's packages are installed here.
+      # dtptite is installed from its source archive, not as a GitHub
+      # remote: for a GitHub remote, Shinylive looks for webR binaries in a
+      # GitHub release. webr/export.R bundles dtptite itself.
+      - name: Install packages
+        run: |
+          install.packages("pak")
+          pak::pak(c(
+            "shinylive", "shiny", "bslib", "bsicons", "htmltools", "ggplot2",
+            "ggiraph", "rhandsontable", "readxl", "dfcrm", "escalation",
+            "BOIN", "dplyr", "tibble", "chromote"
+          ))
+          install.packages(
+            "https://github.com/ICR-EPAT/dtptite/archive/refs/tags/v0.1.0.tar.gz",
+            repos = NULL, type = "source"
+          )
+        shell: Rscript {0}
+
+      - name: Export
+        run: Rscript webr/export.R
+
+      - name: Smoke test
+        run: Rscript webr/smoke-test.R
+
+      - name: Publish to gh-pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          force_orphan: true
