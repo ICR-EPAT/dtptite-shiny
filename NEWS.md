@@ -1,4 +1,4 @@
-# dtptite-shiny (development)
+# dtptite-shiny 1.0.0-rc1
 
 * Rebuild of the legacy DTP-TITE-CRM Shiny app (2021, deployed as
   `dosepath.shinyapps.io/dtp-titecrm_test`) on top of the `dtptite` package

@@ -1,7 +1,8 @@
 # Smoke test of the Shinylive build: serve `_site/`, open it in headless
 # Chrome and wait until the app has run on its example data, that is the
 # summary boxes, both plots and the model table have rendered and no
-# output shows an error.
+# output shows an error. Then check that the footer shows the commit the
+# site was built from.
 #
 # Run from the repository root after webr/export.R: Rscript webr/smoke-test.R
 timeout <- as.numeric(Sys.getenv("SMOKE_TIMEOUT", "300"))
@@ -68,3 +69,19 @@ repeat {
 }
 if (!identical(status, "ready")) stop("App rendered with ", status, call. = FALSE)
 message(sprintf("App rendered in %.0f seconds.", elapsed))
+
+version_js <- "
+(() => {
+  const app = [...document.querySelectorAll('iframe')]
+    .map(f => f.contentDocument).find(d => d && d.getElementById('version'));
+  return app ? app.getElementById('version').textContent : '';
+})()
+"
+version <- session$Runtime$evaluate(version_js)$result$value
+commit <- Sys.getenv("GITHUB_SHA")
+if (!nzchar(commit)) commit <- system2("git", c("rev-parse", "HEAD"), stdout = TRUE)
+if (!grepl(paste("build", substr(commit, 1, 7)), version, fixed = TRUE)) {
+  stop("The footer does not show build ", substr(commit, 1, 7), ": '",
+       version, "'", call. = FALSE)
+}
+message("Footer: ", version)
