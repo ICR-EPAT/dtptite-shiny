@@ -43,3 +43,8 @@ available, as in the `tests` workflow on every pull request.
 - `webr/`: the Shinylive build (`export.R`) and its smoke test
   (`smoke-test.R`), run by `.github/workflows/shinylive.yml`. Pushes to
   `main` publish the build to GitHub Pages.
+
+## License
+
+GPL (>= 3), the same as `dtptite`. Copyright The Institute of Cancer
+Research.
