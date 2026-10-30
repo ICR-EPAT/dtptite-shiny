@@ -30,6 +30,10 @@ shiny::runApp()
 testthat::test_dir("tests/testthat")
 ```
 
+The end-to-end test (`test-app-browser.R`) drives the app in headless
+Chrome with `shinytest2`. It runs when `NOT_CRAN=true` and Chrome is
+available, as in the `tests` workflow on every pull request.
+
 ## Layout
 
 - `app.R`: UI and server.
@@ -39,3 +43,8 @@ testthat::test_dir("tests/testthat")
 - `webr/`: the Shinylive build (`export.R`) and its smoke test
   (`smoke-test.R`), run by `.github/workflows/shinylive.yml`. Pushes to
   `main` publish the build to GitHub Pages.
+
+## License
+
+GPL (>= 3), the same as `dtptite`. Copyright The Institute of Cancer
+Research.
