@@ -283,7 +283,9 @@ app_ui <- function() {
       "and",
       htmltools::a("escalation",
                    href = "https://github.com/brockk/escalation"),
-      "R packages."
+      "R packages.",
+      htmltools::br(),
+      htmltools::span(id = "version", version_text())
     )
   )
 }

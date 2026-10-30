@@ -33,8 +33,12 @@ source_dir <- file.path(tempdir(), "dtptite-src")
 utils::untar(archive, exdir = source_dir)
 install(list.files(source_dir, full.names = TRUE)[1])
 
-# Only the app's own files go into the site.
+# Only the app's own files go into the site, with the git commit they are
+# built from (shown in the app's footer, see R/version.R).
 file.copy(c("app.R", "R", "www"), stage, recursive = TRUE)
+commit <- Sys.getenv("GITHUB_SHA")
+if (!nzchar(commit)) commit <- system2("git", c("rev-parse", "HEAD"), stdout = TRUE)
+writeLines(commit, file.path(stage, "BUILD"))
 shinylive::export(stage, "_site")
 
 # Add the two packages to the bundle, in the form Shinylive uses for the
