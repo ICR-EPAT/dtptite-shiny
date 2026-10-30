@@ -1,14 +1,15 @@
 # Build the Shinylive (browser) version of the app into `_site/`.
 #
-# webR cannot install two packages the app needs: dtptite (not on CRAN)
-# and trialr (escalation imports it; it needs rstan). Both are installed
+# webR cannot install two packages the app needs: dtptite (on CRAN, but
+# not in the webR repository) and trialr (escalation imports it; it needs
+# rstan). Both are installed
 # here as pure-R packages and added to the export's package bundle, where
 # Shinylive installs them like any other package. trialr is a stand-in
 # whose functions stop with an error (see webr/trialr); the app never
 # calls them.
 #
 # Run from the repository root: Rscript webr/export.R
-dtptite_ref <- Sys.getenv("DTPTITE_REF", "v0.1.0-rc1")
+dtptite_ref <- Sys.getenv("DTPTITE_REF", "v0.1.0")
 
 stage <- file.path(tempdir(), "app")
 lib <- file.path(tempdir(), "webr-lib")
