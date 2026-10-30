@@ -30,6 +30,10 @@ shiny::runApp()
 testthat::test_dir("tests/testthat")
 ```
 
+The end-to-end test (`test-app-browser.R`) drives the app in headless
+Chrome with `shinytest2`. It runs when `NOT_CRAN=true` and Chrome is
+available, as in the `tests` workflow on every pull request.
+
 ## Layout
 
 - `app.R`: UI and server.
