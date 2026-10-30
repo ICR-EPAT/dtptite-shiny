@@ -10,3 +10,17 @@
 * The app runs in the browser as a Shinylive build on GitHub Pages
   (<https://icr-epat.github.io/dtptite-shiny/>), so trial data stays on the
   user's computer.
+* The recommended dose on each projected day is checked against the legacy
+  engine (`dtpcrm::applied_titecrm()`, looped as the legacy app did) on the
+  legacy test files and 100 random trials (`test-legacy-parity.R`). Without
+  the skipping rules the two agree on every day. The differences are:
+  * The no-skipping rules count from the current dose, as
+    `escalation::dont_skip_doses()`: at most one level above or below it.
+    Legacy counted from the doses tried so far (one above the highest, one
+    below the lowest), so its no-skipping rule on de-escalation had no
+    effect once dose 1 had been given.
+  * The safety stopping rule uses the Beta prior that is set; legacy always
+    used Be(0.1, 0.9). As in legacy, it monitors only the lowest dose and
+    rules out no other dose.
+  * A recommendation two or more levels below the current dose is labelled
+    de-escalate (D); legacy labelled it stay (S).
