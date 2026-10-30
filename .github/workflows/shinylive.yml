@@ -1,17 +1,18 @@
-# Build the browser (Shinylive) version of the app and publish it to the
-# gh-pages branch, served by GitHub Pages.
+# Build the browser (Shinylive) version of the app, check that it runs, and
+# publish it from main to the gh-pages branch, served by GitHub Pages.
 name: shinylive
 
 on:
   push:
-    branches: [spike/shinylive-pages]
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: shinylive
+  group: shinylive-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,7 +36,7 @@ jobs:
           pak::pak(c(
             "shinylive", "shiny", "bslib", "bsicons", "htmltools", "ggplot2",
             "ggiraph", "rhandsontable", "readxl", "dfcrm", "escalation",
-            "BOIN", "dplyr", "tibble"
+            "BOIN", "dplyr", "tibble", "chromote"
           ))
           install.packages(
             "https://github.com/ICR-EPAT/dtptite/archive/refs/tags/v0.1.0.tar.gz",
@@ -46,7 +47,11 @@ jobs:
       - name: Export
         run: Rscript webr/export.R
 
+      - name: Smoke test
+        run: Rscript webr/smoke-test.R
+
       - name: Publish to gh-pages
+        if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
