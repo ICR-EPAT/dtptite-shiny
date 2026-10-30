@@ -104,31 +104,29 @@ test_that("skipping rules differ from legacy only by the dose they are counted f
   }
 })
 
-test_that("stopping differs from legacy only where dtptite rules out a higher dose", {
-  # Legacy only checked the lowest dose. dtptite's beta-binomial rule also
-  # rules out any dose, and every dose above it, whose DLT rate exceeds the
-  # target with at least the confidence level.
+test_that("stopping matches legacy, which monitors only the lowest dose", {
+  # The random trials include higher doses that would fail the same check
+  # (dtptite 0.1.0's rule would rule them out) and trials that stop.
   confidence <- 0.7
   n_min <- 2
-  n_differ <- 0
+  n_higher_too_toxic <- 0
+  n_stopped <- 0
   for (trial in trials) {
     r <- compare(trial, no_skip_esc = FALSE, no_skip_deesc = FALSE,
                  global_coherence = TRUE, stop_confidence = confidence,
                  stop_n_min = n_min)
+    expect_identical(r$app$dose, as.integer(r$legacy$dose))
+
     level <- trial$legacy[[1]]
     tox <- trial$legacy[[2]]
     n <- tabulate(level, length(design$skeleton))
     s <- tabulate(level[tox == 1], length(design$skeleton))
     too_toxic <- n >= n_min &
       stats::pbeta(design$target, 0.1 + s, 0.9 + n - s,
-                   lower.tail = FALSE) >= confidence
-    expected <- as.integer(r$legacy$dose)
-    if (any(too_toxic)) {
-      expected <- pmin(expected, which(too_toxic)[1] - 1L)
-      expected[expected == 0] <- NA
-    }
-    expect_identical(r$app$dose, expected)
-    n_differ <- n_differ + sum(r$app$dose != r$legacy$dose, na.rm = TRUE)
+                   lower.tail = FALSE) > confidence
+    n_higher_too_toxic <- n_higher_too_toxic + any(too_toxic[-1])
+    n_stopped <- n_stopped + anyNA(r$app$dose)
   }
-  expect_gt(n_differ, 0)
+  expect_gt(n_higher_too_toxic, 0)
+  expect_gt(n_stopped, 0)
 })
