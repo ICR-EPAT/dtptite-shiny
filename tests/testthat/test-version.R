@@ -17,3 +17,8 @@ test_that("the build commit is read from the BUILD file, if any", {
   writeLines("", path)
   expect_null(build_commit(path))
 })
+
+test_that("NEWS is headed with the app version", {
+  news <- readLines(test_path("..", "..", "NEWS.md"), n = 1)
+  expect_equal(news, paste("# dtptite-shiny", app_version))
+})
